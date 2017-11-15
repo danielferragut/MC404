@@ -24,6 +24,9 @@ interrupt_vector:
 .data
 CONTADOR: .skip 4    @Variavel que vai acumular interrupcoes
 
+CALLBACKS: .skip 1
+ALARMES: .skip 1
+
 IRQ_STACK: .skip 52
 IRQ_STACK_START: .skip 4
 
@@ -190,36 +193,36 @@ SVC_HANDLER:
 @R0: Valor obtido na leitura dos sonares; -1 caso o identificador do sonar seja inválido.
 read_sonar:
     cmp r0, #15
-	bhi	read_sonar_error		@ So ha 16 sonares no Uoli, se o numero for maior que 15, sonar invalido 
+	bhi	read_sonar_error		@ So ha 16 sonares no Uoli, se o numero for maior que 15, sonar invalido
 	ldr r1, =GPIO_BASE
 	ldr r4, [r1, #GPIO_DR]
 
-	bic r4, r4, #0b111100           @ Zera o sonar_mux para colocar o valor desejado.
+	bic r4, r4, #0b111100       @ Zera o sonar_mux para colocar o valor desejado.
     add r4, r4, r0, lsl #2
 	orr r4, r4, #0b10			@ Seta o TRIGGER para 1.
 
 	str r4, [r1, #GPIO_DR]		@ Escreve em DR o sonar e o trigger
 
-    @O trigger fica com 1 por 10 ms aprox, e dai eh mudado pra zero para que uma leitura do sonar seja feita
+    @ O trigger fica com 1 por 10 ms aprox, e dai eh mudado pra zero para que uma leitura do sonar seja feita
 read_sonar_10_ms:
     mov r2, #0
 read_sonar_10_ms_loop:
     add r2, r2, #1
-    cmp r2, #200
+    cmp r2, #TIME_SZ
     bne read_sonar_10_ms_loop
-    
-    @Apos 10 ms aprox, o trigger volta pra zero	
+
+    @Apos 10 ms aprox, o trigger volta pra zero
     ldr r4, [r1, #GPIO_DR]
 	bic r4, r4, #0b10			@ Seta o TRIGGER para 0.
 	str r4, [r1, #GPIO_DR]		@ Escreve em DR o sonar e o trigger
-     
+
 
 @ Laco(for) para esperar os sonares atualizarem.
 read_sonar_wait:
 	mov r2, #0
 read_sonar_loop:
 	add r2, r2, #1
-	cmp r2, #200
+	cmp r2, #TIME_SZ
 	blt read_sonar_loop
 
 	@ Carrega e verifica o valor da FLAG
@@ -231,10 +234,10 @@ read_sonar_loop:
 	ldr r0, [r1, #GPIO_PSR]		@ Carrega o valor atualizado em r0
 	mov r4, r0
 
-    @As operacoes a seguir fazem com que so SONAR_DATA[0 - 11] fique em r0 (comecando no bit 0) 
+    @ As operacoes a seguir fazem com que so SONAR_DATA[0 - 11] fique em r0 (comecando no bit 0)
     mov r0, r0, lsl #14
     mov r0, r0, lsr #21
- 
+
 	b read_sonar_end
 
 read_sonar_error:
@@ -254,6 +257,15 @@ read_sonar_end:
 @	 -2 caso o identificador do sonar seja inválido.
 @	 Caso contrário retorna 0.
 register_proximity_callback:
+	@ So ha 16 sonares no Uoli, se o numero for maior que 15, sonar invalido
+	cmp r0, #15
+	bhi	register_proximity_callback_error_1
+	@TODO: Veriricar o numero de callbacks ativos no sistema.
+
+register_proximity_callback_error_1:
+	mov r0, #-2
+
+read_sonar_end:
 	b SVC_fim
 
 @set_motor_speed
@@ -269,46 +281,46 @@ set_motor_speed:
     mov r4, r0
     mov r5, r1
 
-    @Checar se a velocidade eh valida
-    @Como o parametro no LoCo e BiCo eh unsigned char, o valor nunca vai ser negativo
+    @ Checar se a velocidade eh valida
+    @ Como o parametro no LoCo e BiCo eh unsigned char, o valor nunca vai ser negativo
     cmp r4, #0b111111
     movhi r0, #-2
     bhi SVC_fim
-    @Se nao pular, velocidade eh valida
+    @ Se nao pular, velocidade eh valida
 
-    @Trecho de codigo que ve qual motor ter velocidade alterada
+    @ Trecho de codigo que ve qual motor ter velocidade alterada
     cmp r5, #0
     beq SVC_motor_speed_0
     cmp r5, #1
     beq SVC_motor_speed_1
-    @Caso nenhum dos dois, motor invalido
+    @ Caso nenhum dos dois, motor invalido
     mov r0, #-1
     b SVC_fim
 
-@Se entrar nesse rotulo, ira mudar os bits [19,24] para a velocidade e o bit 18 para escrever
+@ Se entrar nesse rotulo, ira mudar os bits [19,24] para a velocidade e o bit 18 para escrever
 SVC_motor_speed_0:
 
-    @Velocidade sendo escrita nos bits
+    @ Velocidade sendo escrita nos bits
     ldr r1, =GPIO_BASE
-    ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-    ldr r3, =0x01FC0000     @Mascara para zerar os bits [18,24]
-    bic r0, r2, r3           @Zera os bits de DR nas posicoes [18,24]
-    mov r3, r5, lsl #19      @Move o primeiro bit da velocidade para o bit 19
-    orr r0, r0, r3           @Escreve a velocidade em DR
-    str r0, [r1, #GPIO_DR]   @Escreve ele em DR
+    ldr r2, [r1, #GPIO_DR]		@ Pega o DR atual
+    ldr r3, =0x01FC0000			@ Mascara para zerar os bits [18,24]
+    bic r0, r2, r3				@ Zera os bits de DR nas posicoes [18,24]
+    mov r3, r5, lsl #19			@ Move o primeiro bit da velocidade para o bit 19
+    orr r0, r0, r3				@ Escreve a velocidade em DR
+    str r0, [r1, #GPIO_DR]		@ Escreve ele em DR
     @TODO:Write esta como 0, talvez voltar pra 1?
 
     b SVC_fim
 
-@Se entrar nesse rotulo, ira mudar os bits [26,31] para a velocidade e o bit 25
+@ Se entrar nesse rotulo, ira mudar os bits [26,31] para a velocidade e o bit 25
 SVC_motor_speed_1:
     ldr r1, =GPIO_BASE
-    ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-    ldr r3, =0xFD000000     @Mascara para zerar os bits [25,31]
-    bic r0, r2, r3           @Zera os bits de DR nas posicoes [25,31]
-    mov r3, r5, lsl #26      @Move o primeiro bit da velocidade para o bit 26
-    orr r0, r0, r3           @Escreve a velocidade em DR
-    str r0, [r1, #GPIO_DR]   @Escreve ele em DR
+    ldr r2, [r1, #GPIO_DR]		@ Pega o DR atual
+    ldr r3, =0xFD000000			@ Mascara para zerar os bits [25,31]
+    bic r0, r2, r3				@ Zera os bits de DR nas posicoes [25,31]
+    mov r3, r5, lsl #26			@ Move o primeiro bit da velocidade para o bit 26
+    orr r0, r0, r3				@ Escreve a velocidade em DR
+    str r0, [r1, #GPIO_DR]		@ Escreve ele em DR
     @TODO: Wrote como 0 ou 1
 	b SVC_fim
 
@@ -325,7 +337,7 @@ set_motors_speed:
     mov r4, r0
     mov r5, r1
 
-    @Verifica as velocidades do motor 0 e 1
+    @ Verifica as velocidades do motor 0 e 1
     cmp r4, #0b111111
     movhi r0, #-1
     bhi SVC_fim
@@ -333,27 +345,27 @@ set_motors_speed:
     movhi r1, #-2
     bhi SVC_fim
 
-    @Velocidade sendo escrita nos bits
+    @ Velocidade sendo escrita nos bits
     ldr r1, =GPIO_BASE
-    ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-    ldr r3, =0x01FC0000     @Mascara para zerar os bits [18,24]
-    bic r0, r2, r3           @Zera os bits de DR nas posicoes [18,24]
-    mov r3, r5, lsl #19      @Move o primeiro bit da velocidade para o bit 19
-    orr r0, r0, r3           @Escreve a velocidade em DR
-    str r0, [r1, #GPIO_DR]   @Escreve ele em DR
+    ldr r2, [r1, #GPIO_DR]		@ Pega o DR atual
+    ldr r3, =0x01FC0000			@ Mascara para zerar os bits [18,24]
+    bic r0, r2, r3				@ Zera os bits de DR nas posicoes [18,24]
+    mov r3, r5, lsl #19			@ Move o primeiro bit da velocidade para o bit 19
+    orr r0, r0, r3				@ Escreve a velocidade em DR
+    str r0, [r1, #GPIO_DR]		@ Escreve ele em DR
     @TODO:Write esta como 0, talvez voltar pra 1?
 
     ldr r1, =GPIO_BASE
-    ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-    ldr r3, =0xFD000000     @Mascara para zerar os bits [25,31]
-    bic r0, r2, r3           @Zera os bits de DR nas posicoes [25,31]
-    mov r3, r5, lsl #26      @Move o primeiro bit da velocidade para o bit 26
-    orr r0, r0, r3           @Escreve a velocidade em DR
-    str r0, [r1, #GPIO_DR]   @Escreve ele em DR
+    ldr r2, [r1, #GPIO_DR]		@ Pega o DR atual
+    ldr r3, =0xFD000000			@ Mascara para zerar os bits [25,31]
+    bic r0, r2, r3				@ Zera os bits de DR nas posicoes [25,31]
+    mov r3, r5, lsl #26			@ Move o primeiro bit da velocidade para o bit 26
+    orr r0, r0, r3				@ Escreve a velocidade em DR
+    str r0, [r1, #GPIO_DR]		@ Escreve ele em DR
     @TODO: Wrote como 0 ou 1
 	b SVC_fim
 
-@get_time
+@ get_time
 @ Retorna:
 @R0: o tempo do sistema
 get_time:
@@ -384,21 +396,21 @@ set_alarm:
 	@Voltar para o estado original do codigo
 	@TODO: Ver quais registradores usou
 SVC_fim:
-    @Retorna pro codigo do usuario
+    @ Retorna pro codigo do usuario
 	pop {r0-r12}
 	movs pc, lr
 
 IRQ_HANDLER:
-    @Move a pilha para a memoria alocada
+    @ Move a pilha para a memoria alocada
     ldr sp, =IRQ_STACK_START
 
     push {r0,r1,r2}
-    @Sinalizacao para GPT que a interrupcao foi tratada
+    @ Sinalizacao para GPT que a interrupcao foi tratada
     mov r0, #1
     ldr r1, =GPT_SR
     str r0, [r1]
 
-    @Acrescimo de um ao contador
+    @ Acrescimo de um ao contador
     mov r0, #1
     ldr r2, =CONTADOR
     ldr r1, [r2]
