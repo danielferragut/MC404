@@ -188,12 +188,14 @@ SVC_HANDLER:
 @R0: Valor obtido na leitura dos sonares; -1 caso o identificador do sonar seja inválido.
 read_sonar:
     cmp r0, #15
-	bhi	read_sonar_error		@ Como o sufixo de cmp eh sem sinal, inclui os valores menores que 0.
+	bhi	read_sonar_error		@ So ha 16 sonares no Uoli, se o numero for maior que 15, sonar invalido 
 	ldr r1, =GPIO_BASE
 	ldr r4, [r1, #GPIO_DR]
 
-	and r4, r4, #0xFFC3			@ Zera o sonar_mux para colocar o valor desejado.
-	add r4, r4, r0, lsl #2
+
+	@and r4, r4, #0xFFC3			@ Zera o sonar_mux para colocar o valor desejado.
+	bic r4, r4, #0b111100           @ Zera o sonar_mux para colocar o valor desejado.
+    add r4, r4, r0, lsl #2
 	orr r4, r4, #0b10			@ Seta o TRIGGER para 1.
 
 	strh r4, [r1, #GPIO_DR]		@ Escreve apenas nos 16 bits menos significativos(devido ao and)
@@ -271,59 +273,29 @@ set_motor_speed:
 
 @Se entrar nesse rotulo, ira mudar os bits [19,24] para a velocidade e o bit 18 para escrever
 SVC_motor_speed_0:
+
     @Velocidade sendo escrita nos bits
-    mov r0, r5, lsl #19      @Pra velocidade comecar no bit 19
     ldr r1, =GPIO_BASE
     ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-    and r0, r0, r2           @Atualiza o DR
-    str r0, [r1, #GPIO_DR]   @Escreve ele de volta
+    ldr r3, =#0x01FC0000     @Mascara para zerar os bits [18,24]
+    bic r0, r2, r3           @Zera os bits de DR nas posicoes [18,24]
+    mov r3, r5, lsl #19      @Move o primeiro bit da velocidade para o bit 19
+    orr r0, r0, r3           @Escreve a velocidade em DR
+    str r0, [r1, #GPIO_DR]   @Escreve ele em DR
+    @TODO:Write esta como 0, talvez voltar pra 1?
 
-    @Write sendo setado
-    mov r0, #0
-    mov r0, lsl #18          @Leva para o bit 18
-
-    @Atualiza DR
-    ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-    and r0, r0, r2           @Atualiza o DR
-    str r0, [r1, #GPIO_DR]   @Escreve ele de volta
-
-    @TODO: Talvez setar 1 de novo
-@    @Write sendo setado
-@    mov r0, #0
-@    mov r0, lsl #18          @Leva para o bit 18
-
-    @Para de escrever a velocidade
-@    ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-@    and r0, r0, r2           @Atualiza o DR
-@    str r0, [r1, #GPIO_DR]   @Escreve ele de volta
     b SVC_fim
 
 @Se entrar nesse rotulo, ira mudar os bits [26,31] para a velocidade e o bit 25
 SVC_motor_speed_1:
-    mov r0, r5, lsl #26      @Pra velocidade comecar no bit 26
     ldr r1, =GPIO_BASE
     ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-    and r0, r0, r2           @Atualiza o DR
-    str r0, [r1, #GPIO_DR]   @Escreve ele de volta
-
-    @Write sendo setado
-    mov r0, #0
-    mov r0, lsl #25          @Leva para o bit 25
-
-    @Atualiza DR
-    ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-    and r0, r0, r2           @Atualiza o DR
-    str r0, [r1, #GPIO_DR]   @Escreve ele de volta
-
-    @TODO: Talvez setar 1 de novo
-@    @Write sendo setado
-@    mov r0, #0
-@    mov r0, lsl #25          @Leva para o bit 18
-
-    @Para de escrever a velocidade
-@    ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-@    and r0, r0, r2           @Atualiza o DR
-@    str r0, [r1, #GPIO_DR]   @Escreve ele de volta
+    ldr r3, =#0xFD000000     @Mascara para zerar os bits [25,31]
+    bic r0, r2, r3           @Zera os bits de DR nas posicoes [25,31]
+    mov r3, r5, lsl #26      @Move o primeiro bit da velocidade para o bit 26
+    orr r0, r0, r3           @Escreve a velocidade em DR
+    str r0, [r1, #GPIO_DR]   @Escreve ele em DR
+    @TODO: Wrote como 0 ou 1
 	b SVC_fim
 
 @set_motors_speed
@@ -347,57 +319,24 @@ set_motors_speed:
     movhi r1, #-2
     bhi SVC_fim
 
-    @Vai escrever as velocidades nos dois motores
     @Velocidade sendo escrita nos bits
-    mov r0, r5, lsl #19      @Pra velocidade comecar no bit 19
     ldr r1, =GPIO_BASE
     ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-    and r0, r0, r2           @Atualiza o DR
-    str r0, [r1, #GPIO_DR]   @Escreve ele de volta
+    ldr r3, =#0x01FC0000     @Mascara para zerar os bits [18,24]
+    bic r0, r2, r3           @Zera os bits de DR nas posicoes [18,24]
+    mov r3, r5, lsl #19      @Move o primeiro bit da velocidade para o bit 19
+    orr r0, r0, r3           @Escreve a velocidade em DR
+    str r0, [r1, #GPIO_DR]   @Escreve ele em DR
+    @TODO:Write esta como 0, talvez voltar pra 1?
 
-    @Write sendo setado
-    mov r0, #0
-    mov r0, lsl #18          @Leva para o bit 18
-
-    @Atualiza DR
-    ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-    and r0, r0, r2           @Atualiza o DR
-    str r0, [r1, #GPIO_DR]   @Escreve ele de volta
-
-    @TODO: Talvez setar 1 de novo
-@    @Write sendo setado
-@    mov r0, #0
-@    mov r0, lsl #18          @Leva para o bit 18
-
-    @Para de escrever a velocidade
-@    ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-@    and r0, r0, r2           @Atualiza o DR
-@    str r0, [r1, #GPIO_DR]   @Escreve ele de volta
-
-    mov r0, r5, lsl #26      @Pra velocidade comecar no bit 19
     ldr r1, =GPIO_BASE
     ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-    and r0, r0, r2           @Atualiza o DR
-    str r0, [r1, #GPIO_DR]   @Escreve ele de volta
-
-    @Write sendo setado
-    mov r0, #0
-    mov r0, lsl #25          @Leva para o bit 18
-
-    @Atualiza DR
-    ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-    and r0, r0, r2           @Atualiza o DR
-    str r0, [r1, #GPIO_DR]   @Escreve ele de volta
-
-    @TODO: Talvez setar 1 de novo
-@    @Write sendo setado
-@    mov r0, #0
-@    mov r0, lsl #25          @Leva para o bit 18
-
-    @Para de escrever a velocidade
-@    ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-@    and r0, r0, r2           @Atualiza o DR
-@    str r0, [r1, #GPIO_DR]   @Escreve ele de volta
+    ldr r3, =#0xFD000000     @Mascara para zerar os bits [25,31]
+    bic r0, r2, r3           @Zera os bits de DR nas posicoes [25,31]
+    mov r3, r5, lsl #26      @Move o primeiro bit da velocidade para o bit 26
+    orr r0, r0, r3           @Escreve a velocidade em DR
+    str r0, [r1, #GPIO_DR]   @Escreve ele em DR
+    @TODO: Wrote como 0 ou 1
 	b SVC_fim
 
 @get_time
