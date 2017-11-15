@@ -210,7 +210,7 @@ read_sonar_10_ms_loop:
     
     @Apos 10 ms aprox, o trigger volta pra zero	
     ldr r4, [r1, #GPIO_DR]
-	and r4, r4, #0b01			@ Seta o TRIGGER para 0.
+	bic r4, r4, #0b10			@ Seta o TRIGGER para 0.
 	str r4, [r1, #GPIO_DR]		@ Escreve em DR o sonar e o trigger
      
 
