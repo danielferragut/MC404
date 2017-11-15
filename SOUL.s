@@ -1,13 +1,13 @@
 @							Trabalho 2
 @	Nome:Daniel Pereira Ferragut	Nome:Gabriel Ryo Hioki
-@	RA:169488						RA:??????							
+@	RA:169488						RA:172434
 @
-@Ultima modificao: 12:15, 10 de novembro 2017
+@Ultima modificao: 12:04, 15 de novembro 2017
 
 .org 0x0
 .section .iv,"a"
 
-_start:		
+_start:
 
 interrupt_vector:
 
@@ -36,26 +36,25 @@ USER_STACK_START: .skip 4
 .text
 .org 0x100
 
-.set GPT_CR, 0x53FA0000
-.set GPT_PR, 0x53FA0004
-.set GPT_SR, 0x53FA0008
-.set GPT_IR, 0x53FA000C
-.set GPT_OCR1, 0x53FA0010
-@TODO: Checar se 200 eh bom valor
-.set TIME_SZ, 200			@Valor que o timer ira contar, suposto a testes e mudancas
-.set USER_CODE 0x77812000
+.set GPT_CR,	0x53FA0000
+.set GPT_PR,	0x53FA0004
+.set GPT_SR,	0x53FA0008
+.set GPT_IR,	0x53FA000C
+.set GPT_OCR1,	0x53FA0010
+.set TIME_SZ,	200			@Valor que o timer ira contar, suposto a testes e mudancas
+.set USER_CODE	0x77812000
 
 RESET_HANDLER:
 
     @ Zera o contador
-    ldr r2, =CONTADOR  @lembre-se de declarar esse contador em uma secao de dados! 
+    ldr r2, =CONTADOR  @lembre-se de declarar esse contador em uma secao de dados!
     mov r0, #0
     str r0, [r2]
 
     @Faz o registrador que aponta para a tabela de interrupções apontar para a tabela interrupt_vector
     ldr r0, =interrupt_vector
     mcr p15, 0, r0, c12, c0, 0
-    
+
     SET_GPT:
     @Configuracao do General Purpose Timer(GPT)
     mov r0, #0x41
@@ -66,7 +65,7 @@ RESET_HANDLER:
     mov r0, #0
     ldr r1, =GPT_PR
     str r0, [r1]
-    
+
     @Valor que ele vai contar
     mov r0, TIME_SZ
     ldr r1, =GPT_OCR1
@@ -79,11 +78,11 @@ RESET_HANDLER:
 
     @Configuracao do GPIO
     SET_GPIO:
-    .set GPIO_BASE, 0x53F84000
-    .set GPIO_DR, 0x0
-    .set GPIO_GDIR, 0x4
-    .set GPIO_PSR, 0x8
-    .set GPIO_GDIR_MASK, #0xFFFC003E
+    .set GPIO_BASE,			0x53F84000
+    .set GPIO_DR,			0x0
+    .set GPIO_GDIR,			0x4
+    .set GPIO_PSR,			0x8
+    .set GPIO_GDIR_MASK,	0xFFFC003E
 
     ldr r1, =GPIO_BASE
 
@@ -98,7 +97,7 @@ RESET_HANDLER:
     @ Constantes para os enderecos do TZIC
     .set TZIC_BASE,             0x0FFFC000
     .set TZIC_INTCTRL,          0x0
-    .set TZIC_INTSEC1,          0x84 
+    .set TZIC_INTSEC1,          0x84
     .set TZIC_ENSET1,           0x104
     .set TZIC_PRIOMASK,         0xC
     .set TZIC_PRIORITY9,        0x424
@@ -165,7 +164,7 @@ SVC_HANDLER:
 	beq register_proximity_callback
 
 	cmp r7, #18
-	beq set_motor_speed 
+	beq set_motor_speed
 
 	cmp r7, #19
 	beq set_motors_speed
@@ -188,12 +187,50 @@ SVC_HANDLER:
 @ Retorno:
 @R0: Valor obtido na leitura dos sonares; -1 caso o identificador do sonar seja inválido.
 read_sonar:
+    cmp r0, #15
+	bhi	read_sonar_error		@ Como o sufixo de cmp eh sem sinal, inclui os valores menores que 0.
+	ldr r1, =GPIO_BASE
+	ldr r4, [r1, #GPIO_DR]
+
+	and r4, r4, #0xFFC3			@ Zera o sonar_mux para colocar o valor desejado.
+	add r4, r4, r0, lsl #2
+	orr r4, r4, #0b10			@ Seta o TRIGGER para 1.
+
+	strh r4, [r1, #GPIO_DR]		@ Escreve apenas nos 16 bits menos significativos(devido ao and)
+
+@ Laco para esperar os sonares atualizarem.
+read_sonar_wait:
+	mov r2, #0
+read_sonar_loop:
+	add r2, r2, #1
+	cmp r2, #200
+	blt read_sonar_loop
+
+	@ Carrega e verifica o valor da FLAG
+	ldr r0, [r1, #GPIO_PSR]
+	and r0, r0, #1
+	cmp r0, #1
+	bne read_sonar_wait			@ Se for diferente de 0, volta ao laco para esperar.
+
+	ldr r0, [r1, #GPIO_PSR]		@ Carrega o valor atualizado em r0
+	mov r4, r0
+
+	and r0, 0x3FF, r0, lsr #6	@ Op para pegar apenas os bits de data nos primeiros 16 bits.
+	bic r4, 0x3, r4				@ Op para fazer o mesmo nos 16 bits menos significativos.
+	add r0, r0, r4, lsl #10		@ Junta os dois.
+
+	b read_sonar_end
+
+read_sonar_error:
+	mov r0, #-1
+
+read_sonar_end:
 	b SVC_fim
 
 @register_proximity_callback
 @ Parametros:
-@	R0: Identificador do sonar (valores válidos: 0 a 15). 
-@	R1: Limiar de distância. 
+@	R0: Identificador do sonar (valores válidos: 0 a 15).
+@	R1: Limiar de distância.
 @	R2: ponteiro para função a ser chamada na ocorrência do alarme.
 @
 @Retorno:
@@ -205,7 +242,7 @@ register_proximity_callback:
 
 @set_motor_speed
 @ Parametros:
-@	R0: Identificador do motor (valores válidos 0 ou 1). 
+@	R0: Identificador do motor (valores válidos 0 ou 1).
 @	R1: Velocidade.
 @
 @ Retorna:
@@ -240,11 +277,11 @@ SVC_motor_speed_0:
     ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
     and r0, r0, r2           @Atualiza o DR
     str r0, [r1, #GPIO_DR]   @Escreve ele de volta
-   
+
     @Write sendo setado
     mov r0, #0
     mov r0, lsl #18          @Leva para o bit 18
-    
+
     @Atualiza DR
     ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
     and r0, r0, r2           @Atualiza o DR
@@ -254,7 +291,7 @@ SVC_motor_speed_0:
 @    @Write sendo setado
 @    mov r0, #0
 @    mov r0, lsl #18          @Leva para o bit 18
-    
+
     @Para de escrever a velocidade
 @    ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
 @    and r0, r0, r2           @Atualiza o DR
@@ -263,16 +300,16 @@ SVC_motor_speed_0:
 
 @Se entrar nesse rotulo, ira mudar os bits [26,31] para a velocidade e o bit 25
 SVC_motor_speed_1:
-    mov r0, r5, lsl #26      @Pra velocidade comecar no bit 19
+    mov r0, r5, lsl #26      @Pra velocidade comecar no bit 26
     ldr r1, =GPIO_BASE
     ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
     and r0, r0, r2           @Atualiza o DR
     str r0, [r1, #GPIO_DR]   @Escreve ele de volta
-   
+
     @Write sendo setado
     mov r0, #0
-    mov r0, lsl #25          @Leva para o bit 18
-    
+    mov r0, lsl #25          @Leva para o bit 25
+
     @Atualiza DR
     ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
     and r0, r0, r2           @Atualiza o DR
@@ -282,7 +319,7 @@ SVC_motor_speed_1:
 @    @Write sendo setado
 @    mov r0, #0
 @    mov r0, lsl #25          @Leva para o bit 18
-    
+
     @Para de escrever a velocidade
 @    ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
 @    and r0, r0, r2           @Atualiza o DR
@@ -291,7 +328,7 @@ SVC_motor_speed_1:
 
 @set_motors_speed
 @ Parametros:
-@R0: Velocidade para o motor 0. 
+@R0: Velocidade para o motor 0.
 @R1: Velocidade para o motor 1.
 @
 @ Retorna:
@@ -301,7 +338,7 @@ SVC_motor_speed_1:
 set_motors_speed:
     mov r4, r0
     mov r5, r1
-   
+
     @Verifica as velocidades do motor 0 e 1
     cmp r4, #0b111111
     movhi r0, #-1
@@ -309,7 +346,7 @@ set_motors_speed:
     cmp r5, #0b111111
     movhi r1, #-2
     bhi SVC_fim
- 
+
     @Vai escrever as velocidades nos dois motores
     @Velocidade sendo escrita nos bits
     mov r0, r5, lsl #19      @Pra velocidade comecar no bit 19
@@ -317,11 +354,11 @@ set_motors_speed:
     ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
     and r0, r0, r2           @Atualiza o DR
     str r0, [r1, #GPIO_DR]   @Escreve ele de volta
-   
+
     @Write sendo setado
     mov r0, #0
     mov r0, lsl #18          @Leva para o bit 18
-    
+
     @Atualiza DR
     ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
     and r0, r0, r2           @Atualiza o DR
@@ -331,7 +368,7 @@ set_motors_speed:
 @    @Write sendo setado
 @    mov r0, #0
 @    mov r0, lsl #18          @Leva para o bit 18
-    
+
     @Para de escrever a velocidade
 @    ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
 @    and r0, r0, r2           @Atualiza o DR
@@ -342,11 +379,11 @@ set_motors_speed:
     ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
     and r0, r0, r2           @Atualiza o DR
     str r0, [r1, #GPIO_DR]   @Escreve ele de volta
-   
+
     @Write sendo setado
     mov r0, #0
     mov r0, lsl #25          @Leva para o bit 18
-    
+
     @Atualiza DR
     ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
     and r0, r0, r2           @Atualiza o DR
@@ -356,7 +393,7 @@ set_motors_speed:
 @    @Write sendo setado
 @    mov r0, #0
 @    mov r0, lsl #25          @Leva para o bit 18
-    
+
     @Para de escrever a velocidade
 @    ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
 @    and r0, r0, r2           @Atualiza o DR
@@ -401,7 +438,7 @@ SVC_fim:
 IRQ_HANDLER:
     @Move a pilha para a memoria alocada
     ldr sp, =IRQ_STACK_START
- 
+
     push {r0,r1,r2}
     @Sinalizacao para GPT que a interrupcao foi tratada
     mov r0, #1
