@@ -149,7 +149,6 @@ SVC_HANDLER:
 	push {r0-r12}
 
 	@TODO: Talvez os nomes dos rotulos possam interfereir
-	@TODO: Tratar cada uma dessas interrupcoes
 	@Codigo: 16 - read_sonar
 	@Codigo: 17 - register_proximity_callback
 	@Codigo: 18 - set_motor_speed
@@ -192,15 +191,27 @@ read_sonar:
 	ldr r1, =GPIO_BASE
 	ldr r4, [r1, #GPIO_DR]
 
-
-	@and r4, r4, #0xFFC3			@ Zera o sonar_mux para colocar o valor desejado.
 	bic r4, r4, #0b111100           @ Zera o sonar_mux para colocar o valor desejado.
     add r4, r4, r0, lsl #2
 	orr r4, r4, #0b10			@ Seta o TRIGGER para 1.
 
-	strh r4, [r1, #GPIO_DR]		@ Escreve apenas nos 16 bits menos significativos(devido ao and)
+	str r4, [r1, #GPIO_DR]		@ Escreve em DR o sonar e o trigger
 
-@ Laco para esperar os sonares atualizarem.
+    @O trigger fica com 1 por 10 ms aprox, e dai eh mudado pra zero para que uma leitura do sonar seja feita
+read_sonar_10_ms:
+    mov r2, #0
+read_sonar_10_ms_loop:
+    add r2, r2, #1
+    cmp r2, #200
+    bne read_sonar_10_ms_loop
+    
+    @Apos 10 ms aprox, o trigger volta pra zero	
+    ldr r4, [r1, #GPIO_DR]
+	and r4, r4, #0b01			@ Seta o TRIGGER para 0.
+	str r4, [r1, #GPIO_DR]		@ Escreve em DR o sonar e o trigger
+     
+
+@ Laco(for) para esperar os sonares atualizarem.
 read_sonar_wait:
 	mov r2, #0
 read_sonar_loop:
@@ -217,10 +228,10 @@ read_sonar_loop:
 	ldr r0, [r1, #GPIO_PSR]		@ Carrega o valor atualizado em r0
 	mov r4, r0
 
-	and r0, 0x3FF, r0, lsr #6	@ Op para pegar apenas os bits de data nos primeiros 16 bits.
-	bic r4, 0x3, r4				@ Op para fazer o mesmo nos 16 bits menos significativos.
-	add r0, r0, r4, lsl #10		@ Junta os dois.
-
+    @As operacoes a seguir fazem com que so SONAR_DATA[0 - 11] fique em r0 (comecando no bit 0) 
+    mov r0, r0, lsl #14
+    mov r0, r0  lsr #21
+ 
 	b read_sonar_end
 
 read_sonar_error:
