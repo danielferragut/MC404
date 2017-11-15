@@ -14,7 +14,7 @@ interrupt_vector:
     b RESET_HANDLER
 
 .org 0x08
-	b SUPERVISOR_HANDLER
+	b SVC_HANDLER
 .org 0x18
     b IRQ_HANDLER
 
@@ -41,8 +41,10 @@ USER_STACK_START: .skip 4
 .set GPT_SR,	0x53FA0008
 .set GPT_IR,	0x53FA000C
 .set GPT_OCR1,	0x53FA0010
+.set USER_CODE, 0x77812000
 .set TIME_SZ,	200			@Valor que o timer ira contar, suposto a testes e mudancas
-.set USER_CODE	0x77812000
+.set MAX_CALLBACKS, 8
+.set MAX_ALARMS, 8
 
 RESET_HANDLER:
 
@@ -67,7 +69,8 @@ RESET_HANDLER:
     str r0, [r1]
 
     @Valor que ele vai contar
-    mov r0, TIME_SZ
+    ldr r0,=TIME_SZ
+    ldr r0, [r0]
     ldr r1, =GPT_OCR1
     str r0, [r1]
 
@@ -87,7 +90,7 @@ RESET_HANDLER:
     ldr r1, =GPIO_BASE
 
     @Coloca as definicoes de entrada e saida no registrador GDIR
-    ldr r0, GPIO_GDIR_MASK @Mascara com as entradas corretas
+    ldr r0, =GPIO_GDIR_MASK @Mascara com as entradas corretas
     str r0, [r1, #GPIO_GDIR]
 
     @Muda pra supervisor
@@ -136,7 +139,7 @@ RESET_HANDLER:
 
     @Trecho de codigo que ira mudar para o codigo do usuario
     ldr lr, =USER_CODE
-    msr CPSR_C, #0x10
+    msr CPSR_c, #0x10
     @Ajusta a pilha do usuario
     ldr sp, =USER_STACK_START
     mov pc, lr
@@ -230,7 +233,7 @@ read_sonar_loop:
 
     @As operacoes a seguir fazem com que so SONAR_DATA[0 - 11] fique em r0 (comecando no bit 0) 
     mov r0, r0, lsl #14
-    mov r0, r0  lsr #21
+    mov r0, r0, lsr #21
  
 	b read_sonar_end
 
@@ -288,7 +291,7 @@ SVC_motor_speed_0:
     @Velocidade sendo escrita nos bits
     ldr r1, =GPIO_BASE
     ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-    ldr r3, =#0x01FC0000     @Mascara para zerar os bits [18,24]
+    ldr r3, =0x01FC0000     @Mascara para zerar os bits [18,24]
     bic r0, r2, r3           @Zera os bits de DR nas posicoes [18,24]
     mov r3, r5, lsl #19      @Move o primeiro bit da velocidade para o bit 19
     orr r0, r0, r3           @Escreve a velocidade em DR
@@ -301,7 +304,7 @@ SVC_motor_speed_0:
 SVC_motor_speed_1:
     ldr r1, =GPIO_BASE
     ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-    ldr r3, =#0xFD000000     @Mascara para zerar os bits [25,31]
+    ldr r3, =0xFD000000     @Mascara para zerar os bits [25,31]
     bic r0, r2, r3           @Zera os bits de DR nas posicoes [25,31]
     mov r3, r5, lsl #26      @Move o primeiro bit da velocidade para o bit 26
     orr r0, r0, r3           @Escreve a velocidade em DR
@@ -333,7 +336,7 @@ set_motors_speed:
     @Velocidade sendo escrita nos bits
     ldr r1, =GPIO_BASE
     ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-    ldr r3, =#0x01FC0000     @Mascara para zerar os bits [18,24]
+    ldr r3, =0x01FC0000     @Mascara para zerar os bits [18,24]
     bic r0, r2, r3           @Zera os bits de DR nas posicoes [18,24]
     mov r3, r5, lsl #19      @Move o primeiro bit da velocidade para o bit 19
     orr r0, r0, r3           @Escreve a velocidade em DR
@@ -342,7 +345,7 @@ set_motors_speed:
 
     ldr r1, =GPIO_BASE
     ldr r2, [r1, #GPIO_DR]   @Pega o DR atual
-    ldr r3, =#0xFD000000     @Mascara para zerar os bits [25,31]
+    ldr r3, =0xFD000000     @Mascara para zerar os bits [25,31]
     bic r0, r2, r3           @Zera os bits de DR nas posicoes [25,31]
     mov r3, r5, lsl #26      @Move o primeiro bit da velocidade para o bit 26
     orr r0, r0, r3           @Escreve a velocidade em DR
