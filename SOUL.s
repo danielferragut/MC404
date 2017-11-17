@@ -2,7 +2,7 @@
 @	Nome:Daniel Pereira Ferragut	Nome:Gabriel Ryo Hioki
 @	RA:169488						RA:172434
 @
-@ Ultima modificao: 12:21, 15 de novembro 2017
+@ Ultima modificao: 16:54, 15 de novembro 2017
 
 .org 0x0
 .section .iv,"a"
