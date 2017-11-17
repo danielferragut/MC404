@@ -2,7 +2,7 @@
 @	Nome:Daniel Pereira Ferragut	Nome:Gabriel Ryo Hioki
 @	RA:169488						RA:172434
 @
-@Ultima modificao: 12:21, 15 de novembro 2017
+@ Ultima modificao: 12:21, 15 de novembro 2017
 
 .org 0x0
 .section .iv,"a"
@@ -19,10 +19,10 @@ interrupt_vector:
     b IRQ_HANDLER
 
 
-@Alocacao de memoria fica aqui
-@TODO: O professor mudou o endereco de memoria pra 12000, nao ha problema de memoria
+@ Alocacao de memoria fica aqui
+@ TODO: O professor mudou o endereco de memoria pra 12000, nao ha problema de memoria
 .data
-CONTADOR: .skip 4    @Variavel que vai acumular interrupcoes
+CONTADOR: .skip 4	@ Variavel que vai acumular interrupcoes
 
 CALLBACKS: .skip 1
 ALARMES: .skip 1
@@ -101,12 +101,12 @@ RESET_HANDLER:
 
     SET_TZIC:
     @ Constantes para os enderecos do TZIC
-    .set TZIC_BASE,             0x0FFFC000
-    .set TZIC_INTCTRL,          0x0
-    .set TZIC_INTSEC1,          0x84
-    .set TZIC_ENSET1,           0x104
-    .set TZIC_PRIOMASK,         0xC
-    .set TZIC_PRIORITY9,        0x424
+    .set TZIC_BASE,			0x0FFFC000
+    .set TZIC_INTCTRL,		0x0
+    .set TZIC_INTSEC1,		0x84
+    .set TZIC_ENSET1,		0x104
+    .set TZIC_PRIOMASK,		0xC
+    .set TZIC_PRIORITY9,	0x424
 
     @ Liga o controlador de interrupcoes
     @ R1 <= TZIC_BASE
