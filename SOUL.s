@@ -308,10 +308,8 @@ SVC_motor_speed_0:
     mov r3, r5, lsl #19      @ Move o primeiro bit da velocidade para o bit 19
     orr r0, r0, r3           @ Escreve a velocidade em DR
     str r0, [r1, #GPIO_DR]   @ Escreve ele em DR
-	mov r0, #0
+	b SVC_motor_speed_fim
     @TODO:Write esta como 0, talvez voltar pra 1?
-
-    b SVC_fim
 
 @Se entrar nesse rotulo, ira mudar os bits [26,31] para a velocidade e o bit 25
 SVC_motor_speed_1:
@@ -322,9 +320,11 @@ SVC_motor_speed_1:
     mov r3, r5, lsl #26      @ Move o primeiro bit da velocidade para o bit 26
     orr r0, r0, r3           @ Escreve a velocidade em DR
     str r0, [r1, #GPIO_DR]   @ Escreve ele em DR
-	mov r0, #0
+	b SVC_motor_speed_fim
 	@TODO: Wrote como 0 ou 1
-
+	
+SVC_motor_speed_fim:
+	mov r0, #0
 	b SVC_fim
 
 @set_motors_speed
@@ -358,13 +358,13 @@ set_motors_speed:
     str r0, [r1, #GPIO_DR]   @ Escreve ele em DR
     @TODO:Write esta como 0, talvez voltar pra 1?
 
-    ldr r1, =GPIO_BASE
     ldr r2, [r1, #GPIO_DR]   @ Pega o DR atual
     ldr r3, =0xFD000000      @ Mascara para zerar os bits [25,31]
     bic r0, r2, r3           @ Zera os bits de DR nas posicoes [25,31]
     mov r3, r5, lsl #26      @ Move o primeiro bit da velocidade para o bit 26
     orr r0, r0, r3           @ Escreve a velocidade em DR
     str r0, [r1, #GPIO_DR]   @ Escreve ele em DR
+
     @TODO: Wrote como 0 ou 1
 	b SVC_fim
 
