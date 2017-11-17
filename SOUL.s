@@ -27,7 +27,7 @@ CONTADOR: .skip 4    @Variavel que vai acumular interrupcoes
 IRQ_STACK: .skip 52
 IRQ_STACK_START: .skip 4
 
-SVC_STACK: .skip 52
+SVC_STACK: .skip 4096 
 SVC_STACK_START: .skip 4
 
 USER_STACK: .skip 4096
@@ -85,13 +85,17 @@ RESET_HANDLER:
     .set GPIO_DR,			0x0
     .set GPIO_GDIR,			0x4
     .set GPIO_PSR,			0x8
-    .set GPIO_GDIR_MASK,	0xFFFC003E
+    .set GPIO_GDIR_MASK,    0xFFFC003E
+    .set GPIO_DR_MASK,      0x02040000
 
     ldr r1, =GPIO_BASE
 
     @Coloca as definicoes de entrada e saida no registrador GDIR
     ldr r0, =GPIO_GDIR_MASK @Mascara com as entradas corretas
     str r0, [r1, #GPIO_GDIR]
+
+    ldr r0, =GPIO_DR_MASK
+    str r0, [r1, #GPIO_DR]
 
     @Muda pra supervisor
     msr CPSR_c, #0x13
