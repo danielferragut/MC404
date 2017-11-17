@@ -33,6 +33,14 @@ SVC_STACK_START: .skip 4
 USER_STACK: .skip 4096
 USER_STACK_START: .skip 4
 
+CALLBACK_ARRAY: .skip 64
+CALLBACK_COUNTER: .word 0
+
+CALLBACK_ARRAY: .skip 32
+CALLBACK_COUNTER: .word 0
+
+ALARM_ARRAY:
+
 .text
 .org 0x100
 
@@ -280,7 +288,7 @@ set_motor_speed:
     bhi SVC_fim
     @ Se nao pular, velocidade eh valida
 
-    @ Trecho de codigo que ve qual motor ter velocidade alterada
+    @ Trecho de codigo que ve qual motor tem velocidade alterada
     cmp r5, #0
     beq SVC_motor_speed_0
     cmp r5, #1
@@ -300,6 +308,7 @@ SVC_motor_speed_0:
     mov r3, r5, lsl #19      @ Move o primeiro bit da velocidade para o bit 19
     orr r0, r0, r3           @ Escreve a velocidade em DR
     str r0, [r1, #GPIO_DR]   @ Escreve ele em DR
+	mov r0, #0
     @TODO:Write esta como 0, talvez voltar pra 1?
 
     b SVC_fim
@@ -313,7 +322,9 @@ SVC_motor_speed_1:
     mov r3, r5, lsl #26      @ Move o primeiro bit da velocidade para o bit 26
     orr r0, r0, r3           @ Escreve a velocidade em DR
     str r0, [r1, #GPIO_DR]   @ Escreve ele em DR
-    @TODO: Wrote como 0 ou 1
+	mov r0, #0
+	@TODO: Wrote como 0 ou 1
+
 	b SVC_fim
 
 @set_motors_speed
