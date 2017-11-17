@@ -148,11 +148,11 @@ RESET_HANDLER:
     str	r0, [r1, #TZIC_INTCTRL]
 
     @ Trecho de codigo que ira mudar para o codigo do usuario
-    ldr lr, =USER_CODE
+    ldr r0, =USER_CODE
     msr CPSR_c, #0x10
     @ Ajusta a pilha do usuario
     ldr sp, =USER_STACK_START
-    mov pc, lr
+    bx r0
 
 @Handler de Supervisor Calls
 SVC_HANDLER:
@@ -243,7 +243,7 @@ read_sonar_loop:
 
     @ As operacoes a seguir fazem com que so SONAR_DATA[0 - 11] fique em r0 (comecando no bit 0)
     mov r0, r0, lsl #14
-    mov r0, r0, lsr #21
+    mov r0, r0, lsr #20
 
 	b read_sonar_end
 
