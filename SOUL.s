@@ -351,7 +351,7 @@ set_motors_speed:
     ldr r2, [r1, #GPIO_DR]   @ Pega o DR atual
     ldr r3, =0x01FC0000      @ Mascara para zerar os bits [18,24]
     bic r0, r2, r3           @ Zera os bits de DR nas posicoes [18,24]
-    mov r3, r5, lsl #19      @ Move o primeiro bit da velocidade para o bit 19
+    mov r3, r4, lsl #19      @ Move o primeiro bit da velocidade para o bit 19
     orr r0, r0, r3           @ Escreve a velocidade em DR
     str r0, [r1, #GPIO_DR]   @ Escreve ele em DR
     @TODO:Write esta como 0, talvez voltar pra 1?
