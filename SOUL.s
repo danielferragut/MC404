@@ -156,6 +156,7 @@ RESET_HANDLER:
     msr CPSR_c, #0x10
     @ Ajusta a pilha do usuario
     ldr sp, =USER_STACK_START
+	@TODO: Habilitar interrupçoes para user
     bx r0
 
 @Handler de Supervisor Calls
