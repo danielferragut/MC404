@@ -33,24 +33,27 @@ SVC_STACK_START: .skip 4
 USER_STACK: .skip 4096
 USER_STACK_START: .skip 4
 
-CALLBACK_ARRAY: .skip 64
+@TODO: Verificar se valores estao corretos
 CALLBACK_COUNTER: .word 0
+CALLBACK_ARRAY: .skip 64
 
-ALARM_ARRAY: .skip 32
 ALARM_COUNTER: .word 0
+ALARM_ARRAY: .skip 64
 
 .text
 .org 0x100
+@Constantes usadas no sistema em geral
+.set USER_CODE, 0x77812000
+.set TIME_SZ,	200			@ Valor que o timer ira contar, suposto a testes e mudancas
+.set MAX_CALLBACKS, 8
+.set MAX_ALARMS, 8
 
+@Constantes para a configuracao do GPT
 .set GPT_CR,	0x53FA0000
 .set GPT_PR,	0x53FA0004
 .set GPT_SR,	0x53FA0008
 .set GPT_IR,	0x53FA000C
 .set GPT_OCR1,	0x53FA0010
-.set USER_CODE, 0x77812000
-.set TIME_SZ,	200			@ Valor que o timer ira contar, suposto a testes e mudancas
-.set MAX_CALLBACKS, 8
-.set MAX_ALARMS, 8
 
 RESET_HANDLER:
 
@@ -158,10 +161,9 @@ RESET_HANDLER:
 SVC_HANDLER:
 	@ Primeiro se ajusta a pilha para o endereco de SVC_STACK_START
 	ldr sp, =SVC_STACK_START
-	@TODO: Ver quais registradores usou e tirar os que nao usar
+	@TODO: Ver quais registradores usou e tirar os que nao usardido
 	push {r0-r12}
-
-	@TODO: Talvez os nomes dos rotulos possam interfereir
+	@SVC vai receber um codigo em R7, indicando o que esta sendo pedido
 	@Codigo: 16 - read_sonar
 	@Codigo: 17 - register_proximity_callback
 	@Codigo: 18 - set_motor_speed
@@ -393,6 +395,21 @@ set_time:
 @	 -2 caso o tempo seja menor do que o tempo atual do sistema.
 @	  0 caso contrário.
 set_alarm:
+	mov r4, r0				@Ponteiro da funcao em R4
+	mov r5, r0				@Tempo do sistema desejado em R5
+
+	@Verifica se ha espaco para mais um alarme
+	ldr r0, =MAX_ALARMS
+	ldr r1, =ALARM_COUNTER
+	cmp r1, r0
+	moveq r0, #-1
+	beq SVC_fim
+
+	@Verifica se o tempo do sistema é maior que o pedido
+	ldr r0, =CONTADOR
+	cmp r0, r5
+	movhi r0, #-2
+	bhi SVC_fim
 	b SVC_fim
 
 	@Voltar para o estado original do codigo
