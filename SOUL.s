@@ -10,9 +10,7 @@
 _start:
 
 interrupt_vector:
-
     b RESET_HANDLER
-
 .org 0x08
 	b SVC_HANDLER
 .org 0x18
@@ -34,6 +32,8 @@ USER_STACK: .skip 4096
 USER_STACK_START: .skip 4
 
 @TODO: Verificar se valores estao corretos
+@ Dois vetores de structs com seus counters, cada elemento tem 8 bytes
+@ 4 bytes para ponteiro de funcao que precisa retornar e outros 4 para a informacao necessario
 CALLBACK_COUNTER: .word 0
 CALLBACK_ARRAY: .skip 64
 
@@ -439,19 +439,53 @@ IRQ_HANDLER:
     @Move a pilha para a memoria alocada
     ldr sp, =IRQ_STACK_START
 
-    push {r0,r1,r2}
+    push {r0-r12}
     @Sinalizacao para GPT que a interrupcao foi tratada
+	@TODO: Isso daqui eh vital pra alguma coisa, descobrir o que
     mov r0, #1
     ldr r1, =GPT_SR
     str r0, [r1]
 
     @Acrescimo de um ao contador
-    mov r0, #1
-    ldr r2, =CONTADOR
-    ldr r1, [r2]
-    add r0, r0, r1
-    str r0, [r2]
+    ldr r1, =CONTADOR
+    ldr r0, [r1]
+    add r0, r0, #1
+    str r0, [r1]
+
+	@Verificar se algum alarme ativou
+	mov r4, r0					@R4 tera o valor do tempo do sistema(CONTADOR)
+	ldr r5, =ALARM_ARRAY		@R5 tera o valor do endereco de array
+	ldr r0, =ALARM_COUNTER		
+	ldr r6, [r0]				@R6 tera o contador de elementos do array
+	mov r0, #0					@R0 sera a variavel de inducao do for
+IRQ_alarm_for_start:
+	cmp r0, r6
+	beq IRQ_alarm_for_end
+	mov r1, r0, lsl #3			@Coloca em r1 o numero de bytes que precisa pular pra chegar no ponteiro do elemento
+	add r2, r1, #4				@Coloca em r2 o numero de bytes para chegar no tempo do sistema do elemento
+	ldr r3, [r5, r2]			@Carrega em r3 o tempo do sistema necessario
+	cmp r3, r5					@Compara o tempo do elemento com o tempo atual do sistema
+	bne IRQ_alarm_for_continue	@Senao for igual, continua o for
+
+	@Se o codigo chegar aqui, achou um alarme legitimo
+	@TODO: Tirar alarme do array, consertar array para que o elemento retirado nao interfira
+	ldr r7, [r5, r1]			@Carrega valor do ponteiro da funcao que eh pra retornar em r7
+
+	@TODO: Processo delicado, precisamos voltar pra funcao do usuario
+	@TODO: Para voltar pro usuario precisa mudar o modo pra usuario
+	@TODO: Ou seja, no momento que mudar nao tem mais volta, nao vai dar pra mexer com coisas do S.O
+	@TODO: Quando voltar pra funcao do usario, um dia a funcao vai acabar e no final vai ter um "mov pc, lr"
+	@TODO: Esse lr, vai voltar aqui ou vai voltar pro user?
+	@TODO: Acho que no momento que restaura o CPSR, o lr volta pro normal
+	@TODO: Entao ele volta pro user, talvez?
+
+	@TODO: Vou fazer no jeito mais head-on, talvez estea errado
+	movs pc, r7
+
+IRQ_alarm_for_contine:
+	add r0, r0 , #1
+IRQ_alarm_for_end:
 
     sub lr, lr, #4
-    pop {r0,r1, r2}
+    pop {r0 -r12}
     movs pc, lr
