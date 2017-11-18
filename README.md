@@ -3,7 +3,7 @@
 # MC404
 Trabalho do fim de curso de Organização Básica de Computadores e Linguagem de Montagem
 
- <img align = "left" src= https://octodex.github.com/images/kimonotocat.png width="190" height="190"  hspace="20" vspace="5" alt="Octocat">
+ <img align = "left" src= https://www.ic.unicamp.br/~edson/disciplinas/mc404/2017-2s/abef/labs/trab02/files/pilha_de_sw.png width="190" height="190"  hspace="20" vspace="5" alt="Octocat">
 
 > ***“Eu sou quero que o semetre acabe.”** <br /> ― Ferragut, Daniel*
 
