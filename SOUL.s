@@ -31,12 +31,13 @@ SVC_STACK_START: .skip 4
 USER_STACK: .skip 4096
 USER_STACK_START: .skip 4
 
-@TODO: Verificar se valores estao corretos
-@ Dois vetores de structs com seus counters, cada elemento tem 8 bytes
+@ Um vetor de structs com seu counter, cada elemento tem 12 bytes
 @ 4 bytes para ponteiro de funcao que precisa retornar e outros 4 para a informacao necessario
 CALLBACK_COUNTER: .word 0
-CALLBACK_ARRAY: .skip 64
+CALLBACK_ARRAY: .skip 96
 
+@ Um vetor de structs com seu counter, cada elemento tem 8 bytes
+@ 4 bytes para ponteiro de funcao que precisa retornar e outros 4 para a informacao necessario
 ALARM_COUNTER: .word 0
 ALARM_ARRAY: .skip 64
 
@@ -266,37 +267,37 @@ read_sonar_end:
 @	 -2 caso o identificador do sonar seja inválido.
 @	 Caso contrário retorna 0.
 register_proximity_callback:
-	mov r4, r0					@Coloca identifador do sonar em R4
+	mov r4, r0					@Coloca identifacador do sonar em R4
 	mov r5, r1					@Limiar de distancia desejado em R5
-	mov r6, r
+	mov r6, r2					@Coloca o ponteiro da funcao que é pra retornar em R6
 
 	@Verifica se o tempo do sistema é maior que o pedido
-	ldr r2, =CONTADOR			@Endero de contador vai pra R2
-	ldr r0, [r2]				@Coloca o valor de contador em R0
-	cmp r0, r5
+	cmp r0, #15
 	movhi r0, #-2
 	bhi SVC_fim
 	
 	@Verifica se ha espaco para mais um alarme
-	ldr r2, =ALARM_COUNTER
-	ldr r3, =MAX_ALARMS
+	ldr r2, =CALLBACK_COUNTER
+	ldr r3, =MAX_CALLBACKS
 	ldr r0, [r2]
 	ldr r1, [r3]
 	cmp r1, r0
-	moveq r0, #-1
+	moveq r0, #-1				@Se o numero for igual, ele nao pode *adicionar* mais callbacks, portanto erro
 	beq SVC_fim
 
-
 	@Colocar novo alarme no vetor de structs de alarm
-	@R0 possui ALARM_COUNTER
-	ldr r1, =ALARM_ARRAY		@Carrega o comeco do vetor de structs em R1
-	str r4, [r1, r0, lsl #3]	@Coloca o ponteiro na struct
-	mov r4, r0					@R4 nao sera mais usado como ponteiro, agora eh ALARM_COUNTER
-	mov r0, r0, lsl #3			@Coloca em R0 a posicao do ponteiro armazenado
-	add r0, r0, #4				@Avanca 4 Bytes da posicao
-	str r5, [r1, r0]			@Armazena o tempo do sistema no final da struct
+	mov r7, r0					@R0 possuia o valor de CALLBACK_COUNTER, agora R7 o contém
+	ldr r1, =CALLBACK_ARRAY		@Carrega o comeco do vetor de structs em R1
+	mov r0, r0, lsl #3			@Coloca R0 em 4 bytes atras do ultimo elemento da struct
+	add r0 r0, #4				@Complementa esses 4 bytes, chegando no final do array
+	str r4, [r1, r0]			@Coloca o identificador de sonar na struct
+	add r0, r0, #4				
+	str r5, [r1, r0]			@Armazena o limiar de distancia no meio da struct
+	add r0, r0, #4				
+	str r6, [r1, r0]			@Armazena o ponteiro da funcao que é pra retornar no fim da função
 	
-	add r4, r4, #1				@Apos a adicao do novo elemento no vetor, o ALARM_COUNTER sobe
+	add r7, r7, #1				@Apos a adicao do novo elemento no vetor, o CALLBACK_COUNTER sobe
+	str r7, [r2]				@Atualiza CALLBACK_COUNTER 
 	mov r0, #0					@Operacao feita com sucesso, retorna R0=0	
 	b SVC_fim
 	b SVC_fim
@@ -451,13 +452,14 @@ set_alarm:
 	@Colocar novo alarme no vetor de structs de alarm
 	@R0 possui ALARM_COUNTER
 	ldr r1, =ALARM_ARRAY		@Carrega o comeco do vetor de structs em R1
-	str r4, [r1, r0, lsl #3]	@Coloca o ponteiro na struct
-	mov r4, r0					@R4 nao sera mais usado como ponteiro, agora eh ALARM_COUNTER
+	mov r6, r0					@R0 contém ALARM_COUNTER, agora R6 também
 	mov r0, r0, lsl #3			@Coloca em R0 a posicao do ponteiro armazenado
+	str r4, [r1, r0]			@Coloca o ponteiro na struct
 	add r0, r0, #4				@Avanca 4 Bytes da posicao
 	str r5, [r1, r0]			@Armazena o tempo do sistema no final da struct
 	
-	add r4, r4, #1				@Apos a adicao do novo elemento no vetor, o ALARM_COUNTER sobe
+	add r7, r7, #1				@Apos a adicao do novo elemento no vetor, o ALARM_COUNTER sobe
+	str r7, [r2]				@Atualiza o valor de ALARM_COUNTER
 	mov r0, #0					@Operacao feita com sucesso, retorna R0=0	
 	b SVC_fim
 
