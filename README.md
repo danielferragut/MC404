@@ -1,5 +1,15 @@
+
+
 # MC404
 Trabalho do fim de curso de Organização Básica de Computadores e Linguagem de Montagem
+
+ <img align = "left" src= https://octodex.github.com/images/kimonotocat.png width="190" height="190"  hspace="20" vspace="5" alt="Octocat">
+
+<br />
+<br />
+<br />
+
+> ***“Eu sou quero que o semetre acabe.”** <br /> ― Ferragut, Daniel*
 ## Objetivos
 Construir um sistema operacional para um rôbo simples e alguns algoritmos de teste
 
