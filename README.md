@@ -14,6 +14,10 @@ Trabalho do fim de curso de Organização Básica de Computadores e Linguagem de
 <br />
 <br />
 
+> ***“Eu passei mais tempo nesse README do que no Soul.s.”** <br /> ― Adivinha, Quem*
+<br />
+<br />
+
 ## Objetivos
 Construir um sistema operacional para um rôbo simples e alguns algoritmos de teste
 
