@@ -22,7 +22,7 @@ Trabalho do fim de curso de Organização Básica de Computadores e Linguagem de
 Construir um sistema operacional para um rôbo simples e alguns algoritmos de teste
 
 ## Enunciado
-O enunciado pode ser encontrado no link [do site do nosso professor Edson Borin](https://www.ic.unicamp.br/~edson/disciplinas/mc404/2017-2s/abef/index.html)
+O enunciado pode ser encontrado no [site do professor Edson Borin](https://www.ic.unicamp.br/~edson/disciplinas/mc404/2017-2s/abef/labs/trab02/trab02.html)
 
 ## Referências utilizadas
 * [ARM Architecture Reference Manual](http://www.altera.com/literature/third-party/archives/ddi0100e_arm_arm.pdf) - Manual completo do ARM Assembly

@@ -1,0 +1,13 @@
+LoCo: BiCo
+	arm-eabi-as loco.s -o loco.o
+BiCo: SOUL
+	arm-eabi-as bico.s -o bico.o
+SOUL:
+	arm-eabi-as SOUL.s -o soul.o
+
+source:
+	ln -s /home/specg12-2/mc404/simulador/set_path_player.sh
+
+clean:
+	rm loco.o bico.o soul.o
+
