@@ -24,7 +24,7 @@ interrupt_vector:
 .data
 CONTADOR: .skip 4    @ Variavel que vai acumular interrupcoes
 
-IRQ_STACK: .skip 52
+IRQ_STACK: .skip 1024
 IRQ_STACK_START: .skip 4
 
 SVC_STACK: .skip 4096
@@ -399,14 +399,17 @@ set_alarm:
 	mov r5, r0					@Tempo do sistema desejado em R5
 
 	@Verifica se o tempo do sistema é maior que o pedido
-	ldr r0, =CONTADOR
+	ldr r2, =CONTADOR			@Endero de contador vai pra R2
+	ldr r0, [r2]				@Coloca o valor de contador em R0
 	cmp r0, r5
 	movhi r0, #-2
 	bhi SVC_fim
 	
 	@Verifica se ha espaco para mais um alarme
-	ldr r0, =ALARM_COUNTER
-	ldr r1, =MAX_ALARMS
+	ldr r2, =ALARM_COUNTER
+	ldr r3, =MAX_ALARMS
+	ldr r0, [r2]
+	ldr r1, [r3]
 	cmp r1, r0
 	moveq r0, #-1
 	beq SVC_fim
