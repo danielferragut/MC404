@@ -502,12 +502,40 @@ IRQ_alarm_for_start:
 	@TODO: TODO MESMO: Mudar pro modo usuario no cpsr_c
 	movs pc, r7
 
-@Parte do codigo que ira verificar se callback dos sonares sera ativado
 	
 IRQ_alarm_for_contine:
 	add r0, r0 , #1
 IRQ_alarm_for_end:
 
+	@Verificar se algum callback foi ativou
+	ldr r5, =CALLBACK_ARRAY			@R5 tera o valor do endereco de array
+	ldr r0, =CALLBACK_COUNTER		
+	ldr r6, [r0]					@R6 tera o contador de elementos do array
+	mov r7, #0						@R7 sera a variavel de inducao do for
+IRQ_callback_for_start:
+	cmp r7, r6
+	beq IRQ_callback_for_end
+
+	mov r8, r7, lsl #3				@R8 fica 4 bytes atras do elemento CALLBACK_ARRAY[R7]
+	add r8, r8, #4					@R8 tera o endereco do sonar do elemento
+	add r9, r8, #4					@R9 tera o endereco do limiar do elemento
+	add r10, r9, #4					@R10 tera o endereco do ponteiro da funcao que é pra ser retornada
+
+	ldr r0, [r5, r8]				@Carrega em R0 o sonar que ira ser analisado
+	bl read_sonar
+	ldr r1, [r5, r9]				@Carrega em R1 o valor do limiar
+	cmp r0, r1
+	bne IRQ_callback_for_continue	@Senao for igual, continua o for
+
+	@Se o codigo chegar aqui, achou um alarme legitimo
+	@TODO: Tirar alarme do array, consertar array para que o elemento retirado nao interfira
+	ldr r0, [r5, r10]			@Carrega valor do ponteiro da funcao que eh pra retornar em R0
+	@TODO: Vou fazer no jeito mais head-on, talvez estea errado
+	@TODO: TODO MESMO: Mudar pro modo usuario no cpsr_c
+	movs pc, r0
+IRQ_callback_for_contine:
+	add r7, r7 , #1
+IRQ_callback_for_end:
     sub lr, lr, #4
-    pop {r0 -r12}
+    pop {r0-r12}
     movs pc, lr
