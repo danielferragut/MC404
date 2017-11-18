@@ -174,27 +174,30 @@ SVC_HANDLER:
 	@Codigo: 21 - set_time
 	@Codigo: 22 - set_alarm
 	cmp r7, #16
-	beq read_sonar
+	bleq read_sonar
 
 	cmp r7, #17
-	beq register_proximity_callback
+	bleq register_proximity_callback
 
 	cmp r7, #18
-	beq set_motor_speed
+	bleq set_motor_speed
 
 	cmp r7, #19
-	beq set_motors_speed
+	bleq set_motors_speed
 
 	cmp r7, #20
-	beq get_time
+	bleq get_time
 
 	cmp r7, #21
-	beq set_time
+	bleq set_time
 
 	cmp r7, #22
-	beq set_alarm
-
-	@TODO: If codigo desconhecido, erro talvez?
+	bleq set_alarm
+	@TODO: Ver quais registradores usou
+SVC_fim:
+    @Retorna pro codigo do usuario
+	pop {r0-r12}
+	movs pc, lr
 
 @read_sonar
 @ Parametros:
@@ -203,8 +206,12 @@ SVC_HANDLER:
 @ Retorno:
 @R0: Valor obtido na leitura dos sonares; -1 caso o identificador do sonar seja inválido.
 read_sonar:
+	push {r4,lr}
+
     cmp r0, #15
-	bhi	read_sonar_error		@ So ha 16 sonares no Uoli, se o numero for maior que 15, sonar invalido
+	movhi, #-1
+	pophi {r4,pc}				@Se o sonar for maior que 15, ele é inválido, portanto, erro
+
 	ldr r1, =GPIO_BASE
 	ldr r4, [r1, #GPIO_DR]
 
@@ -226,8 +233,6 @@ read_sonar_10_ms_loop:
     ldr r4, [r1, #GPIO_DR]
 	bic r4, r4, #0b10			@ Seta o TRIGGER para 0.
 	str r4, [r1, #GPIO_DR]		@ Escreve em DR o sonar e o trigger
-
-
 @ Laco(for) para esperar os sonares atualizarem.
 read_sonar_wait:
 	mov r2, #0
@@ -248,15 +253,8 @@ read_sonar_loop:
     @ As operacoes a seguir fazem com que so SONAR_DATA[0 - 11] fique em r0 (comecando no bit 0)
     mov r0, r0, lsl #14
     mov r0, r0, lsr #20
-
-	b read_sonar_end
-
-read_sonar_error:
-	mov r0, #-1
-
 read_sonar_end:
-	b SVC_fim
-
+	pop {pc}
 @register_proximity_callback
 @ Parametros:
 @	R0: Identificador do sonar (valores válidos: 0 a 15).
@@ -268,6 +266,7 @@ read_sonar_end:
 @	 -2 caso o identificador do sonar seja inválido.
 @	 Caso contrário retorna 0.
 register_proximity_callback:
+	push {r4-r7,lr}
 	mov r4, r0					@Coloca identifacador do sonar em R4
 	mov r5, r1					@Limiar de distancia desejado em R5
 	mov r6, r2					@Coloca o ponteiro da funcao que é pra retornar em R6
@@ -275,7 +274,7 @@ register_proximity_callback:
 	@Verifica se o tempo do sistema é maior que o pedido
 	cmp r0, #15
 	movhi r0, #-2
-	bhi SVC_fim
+	pophi {r4-r7, pc}
 	
 	@Verifica se ha espaco para mais um alarme
 	ldr r2, =CALLBACK_COUNTER
@@ -284,7 +283,7 @@ register_proximity_callback:
 	ldr r1, [r3]
 	cmp r1, r0
 	moveq r0, #-1				@Se o numero for igual, ele nao pode *adicionar* mais callbacks, portanto erro
-	beq SVC_fim
+	popeq {r4-r7, pc}
 
 	@Colocar novo alarme no vetor de structs de alarm
 	mov r7, r0					@R0 possuia o valor de CALLBACK_COUNTER, agora R7 o contém
@@ -300,9 +299,7 @@ register_proximity_callback:
 	add r7, r7, #1				@Apos a adicao do novo elemento no vetor, o CALLBACK_COUNTER sobe
 	str r7, [r2]				@Atualiza CALLBACK_COUNTER 
 	mov r0, #0					@Operacao feita com sucesso, retorna R0=0	
-	b SVC_fim
-	b SVC_fim
-
+	pop {r4-r7,pc}
 @set_motor_speed
 @ Parametros:
 @	R0: Identificador do motor (valores válidos 0 ou 1).
@@ -313,6 +310,7 @@ register_proximity_callback:
 @	 -2 caso a velocidade seja inválida
 @	  0 caso Ok.
 set_motor_speed:
+	push {r4,r5,lr}
     mov r4, r0
     mov r5, r1
 
@@ -320,7 +318,7 @@ set_motor_speed:
     @ Como o parametro no LoCo e BiCo eh unsigned char, o valor nunca vai ser negativo
     cmp r4, #0b111111
     movhi r0, #-2
-    bhi SVC_fim
+	pop {r4,r5,pc}
     @ Se nao pular, velocidade eh valida
 
     @ Trecho de codigo que ve qual motor tem velocidade alterada
@@ -330,8 +328,7 @@ set_motor_speed:
     beq SVC_motor_speed_1
     @ Caso nenhum dos dois, motor invalido
     mov r0, #-1
-    b SVC_fim
-
+	pop {r4,r5,pc}
 @ Se entrar nesse rotulo, ira mudar os bits [19,24] para a velocidade e o bit 18 para escrever
 SVC_motor_speed_0:
 
@@ -355,12 +352,11 @@ SVC_motor_speed_1:
     mov r3, r5, lsl #26      @ Move o primeiro bit da velocidade para o bit 26
     orr r0, r0, r3           @ Escreve a velocidade em DR
     str r0, [r1, #GPIO_DR]   @ Escreve ele em DR
-	b SVC_motor_speed_fim
 	@TODO: Wrote como 0 ou 1
 
 SVC_motor_speed_fim:
 	mov r0, #0
-	b SVC_fim
+	pop {r4,r5,pc}
 
 @set_motors_speed
 @ Parametros:
@@ -372,53 +368,46 @@ SVC_motor_speed_fim:
 @	 -2 caso a velocidade para o motor 1 seja inválida,
 @	  0 caso Ok.
 set_motors_speed:
+	push {r4,r5,lr}
     mov r4, r0
     mov r5, r1
 
     @Verifica as velocidades do motor 0 e 1
     cmp r4, #0b111111
     movhi r0, #-1
-    bhi SVC_fim
+	pophi {r4,r5,pc}
     cmp r5, #0b111111
-    movhi r1, #-2
-    bhi SVC_fim
+    movhi r0, #-2
+	pophi {r4,r5,pc}
 
-    @ Velocidade sendo escrita nos bits
-    ldr r1, =GPIO_BASE
-    ldr r2, [r1, #GPIO_DR]   @ Pega o DR atual
-    ldr r3, =0x01FC0000      @ Mascara para zerar os bits [18,24]
-    bic r0, r2, r3           @ Zera os bits de DR nas posicoes [18,24]
-    mov r3, r4, lsl #19      @ Move o primeiro bit da velocidade para o bit 19
-    orr r0, r0, r3           @ Escreve a velocidade em DR
-    str r0, [r1, #GPIO_DR]   @ Escreve ele em DR
-    @TODO:Write esta como 0, talvez voltar pra 1?
-
-    ldr r2, [r1, #GPIO_DR]   @ Pega o DR atual
-    ldr r3, =0xFE000000      @ Mascara para zerar os bits [25,31]
-    bic r0, r2, r3           @ Zera os bits de DR nas posicoes [25,31]
-    mov r3, r5, lsl #26      @ Move o primeiro bit da velocidade para o bit 26
-    orr r0, r0, r3           @ Escreve a velocidade em DR
-    str r0, [r1, #GPIO_DR]   @ Escreve ele em DR
+	mov r0, #0
+	mov r1, r4
+	bl set_motor_speed
+	mov r0, #1
+	mov r1, r5
+	bl set_motor_speed
 
     @TODO: Wrote como 0 ou 1
 	mov r0, #0
-	b SVC_fim
+	pop {r4,r5,pc}
 
 @get_time
 @ Retorna:
 @R0: o tempo do sistema
 get_time:
+	push {lr}
     ldr r1, =CONTADOR
     ldr r0, [r1]
-	b SVC_fim
+	pop {pc}
 
 @ set_time
 @ Parametros:
 @	R0: Tempo a ser setado
 set_time:
+	push {lr}
     ldr r1, =CONTADOR
     str r0, [r1]
-	b SVC_fim
+	pop {pc}
 
 @ set_alarm
 @ Parametros:
@@ -430,6 +419,7 @@ set_time:
 @	 -2 caso o tempo seja menor do que o tempo atual do sistema.
 @	  0 caso contrário.
 set_alarm:
+	push {r4-r7, lr}
 	mov r4, r0					@Ponteiro da funcao em R4
 	mov r5, r1					@Tempo do sistema desejado em R5
 
@@ -438,7 +428,7 @@ set_alarm:
 	ldr r0, [r2]				@Coloca o valor de contador em R0
 	cmp r0, r5
 	movhi r0, #-2
-	bhi SVC_fim
+	popeq {r4-r7, pc}
 	
 	@Verifica se ha espaco para mais um alarme
 	ldr r2, =ALARM_COUNTER
@@ -447,8 +437,7 @@ set_alarm:
 	ldr r1, [r3]
 	cmp r1, r0
 	moveq r0, #-1
-	beq SVC_fim
-
+	popeq {r4-r7, pc}
 
 	@Colocar novo alarme no vetor de structs de alarm
 	@R0 possui ALARM_COUNTER
@@ -462,14 +451,8 @@ set_alarm:
 	add r7, r7, #1				@Apos a adicao do novo elemento no vetor, o ALARM_COUNTER sobe
 	str r7, [r2]				@Atualiza o valor de ALARM_COUNTER
 	mov r0, #0					@Operacao feita com sucesso, retorna R0=0	
-	b SVC_fim
+	pop {r4-r7, pc}
 
-	@Voltar para o estado original do codigo
-	@TODO: Ver quais registradores usou
-SVC_fim:
-    @Retorna pro codigo do usuario
-	pop {r0-r12}
-	movs pc, lr
 
 IRQ_HANDLER:
     @Move a pilha para a memoria alocada
@@ -516,8 +499,11 @@ IRQ_alarm_for_start:
 	@TODO: Entao ele volta pro user, talvez?
 
 	@TODO: Vou fazer no jeito mais head-on, talvez estea errado
+	@TODO: TODO MESMO: Mudar pro modo usuario no cpsr_c
 	movs pc, r7
 
+@Parte do codigo que ira verificar se callback dos sonares sera ativado
+	
 IRQ_alarm_for_contine:
 	add r0, r0 , #1
 IRQ_alarm_for_end:
