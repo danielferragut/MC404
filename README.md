@@ -5,7 +5,7 @@ Trabalho do fim de curso de Organização Básica de Computadores e Linguagem de
 
  <img align = "left" src= https://www.ic.unicamp.br/~edson/disciplinas/mc404/2017-2s/abef/labs/trab02/files/pilha_de_sw.png width="300" height="300"  hspace="40" vspace="5" alt="Borin Png">
 
-> ***“Eu sou quero que o semetre acabe.”** <br /> ― Ferragut, Daniel*
+> ***“Eu só quero que o semetre acabe.”** <br /> ― Ferragut, Daniel*
 
 <br />
 <br />
@@ -14,7 +14,7 @@ Trabalho do fim de curso de Organização Básica de Computadores e Linguagem de
 <br />
 <br />
 
-> ***“Eu passei mais tempo nesse README do que no Soul.s.”** <br /> ― Adivinha, Quem*
+> ***“Eu passei mais tempo nesse readme do que no Soul.s.”** <br /> ― Adivinha, Quem*
 <br />
 <br />
 
