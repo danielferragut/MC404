@@ -10,7 +10,7 @@ Trabalho do fim de curso de Organização Básica de Computadores e Linguagem de
 <br />
 <br />
 
-> ***“Ore wa aho desu.”** <br /> ― Ryoo-chan*
+> ***“Boku wa oishii desu.”** <br /> ― Ryoo-chan*
 <br />
 <br />
 
