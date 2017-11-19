@@ -197,10 +197,9 @@ SVC_HANDLER:
 
 	cmp r7, #23
 	bleq change_back_to_IRQ_mode
-	beq SVC_fim					@Como change_back_to_IRQ_mode ira pro modo irq, ele ja vai arrumar a pilha
+
     @Retorna pro codigo do usuario
 	pop {r0-r12}
-SVC_fim:
 	movs pc, lr
 
 @read_sonar
@@ -460,12 +459,10 @@ set_alarm:
 @	R0: Endereco da posicao que quer voltar
 change_back_to_IRQ_mode:
 	@O código esta no modo supervisor, para mudar para o modo IRQ, precisa reataurar a pilha pro modo original
-	@O endereco de volta é colocado em lr, para nao ser perdido
-	@É legitimo mudar o lr pois ele só continha informacao da volta pra SVC, algo que o código nao ira fazer
-	mov lr, r0
+	@Apos o pop, r0 tera o endereco de memoria do IRQ
 	pop {r0-r12}				
 	msr CPSR_c, #0x12			@Coloca no modo IRQ
-	bx lr
+	bx r0
 
 IRQ_HANDLER:
     @Move a pilha para a memoria alocada
@@ -503,13 +500,13 @@ IRQ_alarm_for_start:
 	@TODO: Tirar alarme do array, consertar array para que o elemento retirado nao interfira
 	@TODO: Garantir que nao ha interrupcoes no meio de outra
 	ldr r7, [r5, r1]			@Carrega valor do ponteiro da funcao que eh pra retornar em r7
-	push {r0-r12, lr}
+	push {r0-r12, lr}			
     msr CPSR_c, #0x10			@Muda pra usuario
 	blx r7
-	pop {r0-r12, lr}
+	pop {r0-r12, lr}			@O push e pop relativo a este talvez nao sejam necessarios, mas pra lr sim
 	@TODO: Retirar callback e arrumar exatamente aqui
 	mov r7, #23					@R7 tera codigo do register_proximity_call
-	add r0, pc, #8				
+	add r0, pc, #8				@R0 tera o endereço depois de SVC 0x0, mudando de User pra IRQ
 	svc 0x0
 	
 IRQ_alarm_for_contine:
@@ -539,9 +536,15 @@ IRQ_callback_for_start:
 	@Se o codigo chegar aqui, achou um alarme legitimo
 	@TODO: Tirar alarme do array, consertar array para que o elemento retirado nao interfira
 	ldr r0, [r5, r10]			@Carrega valor do ponteiro da funcao que eh pra retornar em R0
-	@TODO: Vou fazer no jeito mais head-on, talvez estea errado
-	@TODO: TODO MESMO: Mudar pro modo usuario no cpsr_c
-	movs pc, r0
+	push {r0-r12, lr}			
+    msr CPSR_c, #0x10			@Muda pra usuario
+	blx r7
+	pop {r0-r12, lr}			@O push e pop relativo a este talvez nao sejam necessarios, mas pra lr sim
+	@TODO: Retirar callback e arrumar exatamente aqui
+	mov r7, #23					@R7 tera codigo do register_proximity_call
+	add r0, pc, #8				@R0 tera o endereço depois de SVC 0x0, mudando de User pra IRQ
+	svc 0x0
+
 IRQ_callback_for_continue:
 	add r7, r7 , #1
 IRQ_callback_for_end:
