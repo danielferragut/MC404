@@ -246,13 +246,10 @@ read_sonar_loop:
 	blt read_sonar_loop
 
 	@ Carrega e verifica o valor da FLAG
-	ldr r0, [r1, #GPIO_PSR]
-	and r0, r0, #1
+	ldr r4, [r1, #GPIO_PSR]
+	and r0, r4, #1
 	cmp r0, #1
 	bne read_sonar_wait			@ Se for diferente de 0, volta ao laco para esperar.
-
-	ldr r0, [r1, #GPIO_PSR]		@ Carrega o valor atualizado em r0
-	mov r4, r0
 
     @ As operacoes a seguir fazem com que so SONAR_DATA[0 - 11] fique em r0 (comecando no bit 0)
     mov r0, r0, lsl #14
@@ -433,7 +430,7 @@ set_alarm:
 	ldr r0, [r2]				@Coloca o valor de contador em R0
 	cmp r0, r5
 	movhi r0, #-2
-	popeq {r4-r7, pc}
+	pophi {r4-r7, pc}
 	
 	@Verifica se ha espaco para mais um alarme
 	ldr r2, =ALARM_COUNTER
@@ -506,16 +503,14 @@ IRQ_alarm_for_start:
 	@TODO: Tirar alarme do array, consertar array para que o elemento retirado nao interfira
 	@TODO: Garantir que nao ha interrupcoes no meio de outra
 	ldr r7, [r5, r1]			@Carrega valor do ponteiro da funcao que eh pra retornar em r7
-	push {r0-r12}
-    msr CPSR_c, #0x10			@Muda pra usuario		
+	push {r0-r12, lr}
+    msr CPSR_c, #0x10			@Muda pra usuario
 	blx r7
+	pop {r0-r12, lr}
 	@TODO: Retirar callback e arrumar exatamente aqui
 	mov r7, #23					@R7 tera codigo do register_proximity_call
 	add r0, pc, #8				
 	svc 0x0
-	pop {r0-r12}
-
-
 	
 IRQ_alarm_for_contine:
 	add r0, r0 , #1
