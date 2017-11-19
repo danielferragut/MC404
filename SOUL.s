@@ -213,7 +213,7 @@ read_sonar:
 	push {r4,lr}
 
     cmp r0, #15
-	movhi, #-1
+	movhi r0, #-1
 	pophi {r4,pc}				@Se o sonar for maior que 15, ele é inválido, portanto, erro
 
 	ldr r1, =GPIO_BASE
@@ -230,7 +230,7 @@ read_sonar_10_ms:
     mov r2, #0
 read_sonar_10_ms_loop:
     add r2, r2, #1
-    cmp r2, #200
+    cmp r2, #1000
     bne read_sonar_10_ms_loop
 
     @ Apos 10 ms aprox, o trigger volta pra zero
@@ -242,7 +242,7 @@ read_sonar_wait:
 	mov r2, #0
 read_sonar_loop:
 	add r2, r2, #1
-	cmp r2, #200
+	cmp r2, #1000
 	blt read_sonar_loop
 
 	@ Carrega e verifica o valor da FLAG
@@ -462,8 +462,11 @@ set_alarm:
 @ Paramentros:
 @	R0: Endereco da posicao que quer voltar
 change_back_to_IRQ_mode:
+	@O código esta no modo supervisor, para mudar para o modo IRQ, precisa reataurar a pilha pro modo original
+	@O endereco de volta é colocado em lr, para nao ser perdido
+	@É legitimo mudar o lr pois ele só continha informacao da volta pra SVC, algo que o código nao ira fazer
 	mov lr, r0
-	pop {r0-r12}				@Desempilhar tudo do supervisor
+	pop {r0-r12}				
 	msr CPSR_c, #0x12			@Coloca no modo IRQ
 	bx lr
 
@@ -507,7 +510,11 @@ IRQ_alarm_for_start:
     msr CPSR_c, #0x10			@Muda pra usuario		
 	blx r7
 	@TODO: Retirar callback e arrumar exatamente aqui
-	mov r7, #23
+	mov r7, #23					@R7 tera codigo do register_proximity_call
+	add r0, pc, #8				
+	svc 0x0
+	pop {r0-r12}
+
 
 	
 IRQ_alarm_for_contine:
