@@ -173,6 +173,7 @@ SVC_HANDLER:
 	@Codigo: 20 - get_time
 	@Codigo: 21 - set_time
 	@Codigo: 22 - set_alarm
+	@Codigo: 23 - change_back_to_IRQ_mode
 	cmp r7, #16
 	bleq read_sonar
 
@@ -193,10 +194,13 @@ SVC_HANDLER:
 
 	cmp r7, #22
 	bleq set_alarm
-	@TODO: Ver quais registradores usou
-SVC_fim:
+
+	cmp r7, #23
+	bleq change_back_to_IRQ_mode
+	beq SVC_fim					@Como change_back_to_IRQ_mode ira pro modo irq, ele ja vai arrumar a pilha
     @Retorna pro codigo do usuario
 	pop {r0-r12}
+SVC_fim:
 	movs pc, lr
 
 @read_sonar
@@ -254,7 +258,7 @@ read_sonar_loop:
     mov r0, r0, lsl #14
     mov r0, r0, lsr #20
 read_sonar_end:
-	pop {pc}
+	pop {r4, pc}
 @register_proximity_callback
 @ Parametros:
 @	R0: Identificador do sonar (valores válidos: 0 a 15).
@@ -392,12 +396,13 @@ set_motors_speed:
 	pop {r4,r5,pc}
 
 @get_time
-@ Retorna:
-@R0: o tempo do sistema
+@ Parametros:
+@	R0: Ponteiro de unsigned int
 get_time:
 	push {lr}
     ldr r1, =CONTADOR
-    ldr r0, [r1]
+    ldr r2, [r1]
+	str r2, [r0]
 	pop {pc}
 
 @ set_time
@@ -453,6 +458,14 @@ set_alarm:
 	mov r0, #0					@Operacao feita com sucesso, retorna R0=0	
 	pop {r4-r7, pc}
 
+@change_back_to_IRQ_mode:
+@ Paramentros:
+@	R0: Endereco da posicao que quer voltar
+change_back_to_IRQ_mode:
+	mov lr, r0
+	pop {r0-r12}				@Desempilhar tudo do supervisor
+	msr CPSR_c, #0x12			@Coloca no modo IRQ
+	bx lr
 
 IRQ_HANDLER:
     @Move a pilha para a memoria alocada
@@ -488,19 +501,13 @@ IRQ_alarm_for_start:
 
 	@Se o codigo chegar aqui, achou um alarme legitimo
 	@TODO: Tirar alarme do array, consertar array para que o elemento retirado nao interfira
+	@TODO: Garantir que nao ha interrupcoes no meio de outra
 	ldr r7, [r5, r1]			@Carrega valor do ponteiro da funcao que eh pra retornar em r7
-
-	@TODO: Processo delicado, precisamos voltar pra funcao do usuario
-	@TODO: Para voltar pro usuario precisa mudar o modo pra usuario
-	@TODO: Ou seja, no momento que mudar nao tem mais volta, nao vai dar pra mexer com coisas do S.O
-	@TODO: Quando voltar pra funcao do usario, um dia a funcao vai acabar e no final vai ter um "mov pc, lr"
-	@TODO: Esse lr, vai voltar aqui ou vai voltar pro user?
-	@TODO: Acho que no momento que restaura o CPSR, o lr volta pro normal
-	@TODO: Entao ele volta pro user, talvez?
-
-	@TODO: Vou fazer no jeito mais head-on, talvez estea errado
-	@TODO: TODO MESMO: Mudar pro modo usuario no cpsr_c
-	movs pc, r7
+	push {r0-r12}
+    msr CPSR_c, #0x10			@Muda pra usuario		
+	blx r7
+	@TODO: Retirar callback e arrumar exatamente aqui
+	mov r7, #23
 
 	
 IRQ_alarm_for_contine:
@@ -533,7 +540,7 @@ IRQ_callback_for_start:
 	@TODO: Vou fazer no jeito mais head-on, talvez estea errado
 	@TODO: TODO MESMO: Mudar pro modo usuario no cpsr_c
 	movs pc, r0
-IRQ_callback_for_contine:
+IRQ_callback_for_continue:
 	add r7, r7 , #1
 IRQ_callback_for_end:
     sub lr, lr, #4
