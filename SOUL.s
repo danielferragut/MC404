@@ -216,36 +216,45 @@ read_sonar:
 	pophi {r4,pc}				@Se o sonar for maior que 15, ele é inválido, portanto, erro
 
 	ldr r1, =GPIO_BASE
-	ldr r4, [r1, #GPIO_DR]
+	ldr r4, [r1, #GPIO_PSR]
 
-	bic r4, r4, #0b111100       @ Zera o sonar_mux para colocar o valor desejado.
+	bic r4, r4, #0b111110       @ Zera o sonar_mux para colocar o valor desejado e zera o trigger.
     add r4, r4, r0, lsl #2
-	orr r4, r4, #0b10			@ Seta o TRIGGER para 1.
 
 	str r4, [r1, #GPIO_DR]		@ Escreve em DR o sonar e o trigger
 
-    @ O trigger fica com 1 por 10 ms aprox, e dai eh mudado pra zero para que uma leitura do sonar seja feita
-read_sonar_10_ms:
+	@ Primeira espera do trigger.
     mov r2, #0
-read_sonar_10_ms_loop:
+read_sonar_loop_1:
     add r2, r2, #1
-    cmp r2, #1000
-    bne read_sonar_10_ms_loop
+    cmp r2, #200
+    bne read_sonar_loop_1
 
-    @ Apos 10 ms aprox, o trigger volta pra zero
-    ldr r4, [r1, #GPIO_DR]
-	bic r4, r4, #0b10			@ Seta o TRIGGER para 0.
+    @ Apos 10 ms aprox, setar o trigger para 1.
+	orr r4, r4, #0b10			@ Seta o TRIGGER para 1.
 	str r4, [r1, #GPIO_DR]		@ Escreve em DR o sonar e o trigger
-@ Laco(for) para esperar os sonares atualizarem.
+
+	@ Segunda espera do trigger.
+	mov r2, #0
+read_sonar_loop_2:
+    add r2, r2, #1
+    cmp r2, #200
+    bne read_sonar_loop_2
+
+	@ Apos 10 ms aprox, setar o trigger para 0.
+	bic r4, r4, #0b10       	@ Zera o trigger.
+	str r4, [r1, #GPIO_DR]		@ Escreve em DR o sonar e o trigger
+
+@ Laco(for) para esperar os sonares atualizarem(Esperar FLAG ficar = 1).
 read_sonar_wait:
 	mov r2, #0
-read_sonar_loop:
+read_sonar_loop_3:
 	add r2, r2, #1
-	cmp r2, #1000
-	blt read_sonar_loop
+	cmp r2, #200
+	blt read_sonar_loop_3
 
-	@ Carrega e verifica o valor da FLAG
-	ldr r4, [r1, #GPIO_PSR]
+	@ Carrega e verifica o valor da FLAG(Le a flag do DR pois senao ela nao muda)
+	ldr r4, [r1, #GPIO_DR]
 	and r0, r4, #1
 	cmp r0, #1
 	bne read_sonar_wait			@ Se for diferente de 0, volta ao laco para esperar.
@@ -255,6 +264,7 @@ read_sonar_loop:
     mov r0, r0, lsr #20
 read_sonar_end:
 	pop {r4, pc}
+
 @register_proximity_callback
 @ Parametros:
 @	R0: Identificador do sonar (valores válidos: 0 a 15).
@@ -288,8 +298,10 @@ register_proximity_callback:
 	@Colocar novo callback no vetor de structs de callbacks
 	mov r7, r0					@R0 possuia o valor de CALLBACK_COUNTER, agora tambem R7 o contém
 	ldr r1, =CALLBACK_ARRAY		@Carrega o comeco do vetor de structs em R1
-	mov r0, r0, lsl #3			@Coloca R0 em 4 bytes atras do ultimo elemento da struct
-	add r0, r0, #4				@Complementa esses 4 bytes, chegando no final do array
+	@TODO: Talvez desse modo seja melhor.
+	@ mov r0, r0, lsl #3			@Coloca R0 em 4 bytes atras do ultimo elemento da struct
+	@ add r0, r0, #4				@Complementa esses 4 bytes, chegando no final do array
+	mul r0, r0, #12
 	str r4, [r1, r0]			@Coloca o identificador de sonar na struct
 	add r0, r0, #4
 	str r5, [r1, r0]			@Armazena o limiar de distancia no meio da struct
@@ -523,8 +535,10 @@ IRQ_callback_for_start:
 	cmp r7, r6
 	beq IRQ_callback_for_end
 
-	mov r8, r7, lsl #3				@R8 fica 4 bytes atras do elemento CALLBACK_ARRAY[R7]
-	add r8, r8, #4					@R8 tera o endereco do sonar do elemento
+	@TODO: Acho que esta errado
+	@mov r8, r7, lsl #3				@R8 fica 4 bytes atras do elemento CALLBACK_ARRAY[R7]
+	@add r8, r8, #4					@R8 tera o endereco do sonar do elemento
+	mul r8, r7, #12
 	add r9, r8, #4					@R9 tera o endereco do limiar do elemento
 	add r10, r9, #4					@R10 tera o endereco do ponteiro da funcao que é pra ser retornada
 
@@ -535,18 +549,40 @@ IRQ_callback_for_start:
 	bne IRQ_callback_for_continue	@Senao for igual, continua o for
 
 	@Se o codigo chegar aqui, achou um callback legitimo
-	@TODO: Tirar alarme do array, consertar array para que o elemento retirado nao interfira
-	ldr r0, [r5, r10]			@Carrega valor do ponteiro da funcao que eh pra retornar em R0
+	@TODO: Tirar callback do array, consertar array para que o elemento retirado nao interfira
+	ldr r0, [r5, r10]				@Carrega valor do ponteiro da funcao que eh pra retornar em R0
 	push {r0-r12, lr}
-    msr CPSR_c, #0x10			@Muda pra usuario
+    msr CPSR_c, #0x10				@Muda pra usuario
 	blx r0
-	pop {r0-r12, lr}			@O push e pop relativo a este talvez nao sejam necessarios, mas pra lr sim
+	pop {r0-r12, lr}				@O push e pop relativo a este talvez nao sejam necessarios, mas pra lr sim
 	@TODO: Retirar callback e arrumar exatamente aqui
 	push {r7}
-	mov r7, #23					@R7 tera codigo do register_proximity_call
-	add r0, pc, #8				@R0 tera o endereço depois de SVC 0x0, mudando de User pra IRQ
+	mov r7, #23						@R7 tera codigo do register_proximity_call
+	add r0, pc, #8					@R0 tera o endereço depois de SVC 0x0, mudando de User pra IRQ
 	svc 0x0
 	pop {r7}
+
+	@Parte que remove o callback
+	mov r2, r7
+IRQ_remove_callback_loop:
+	cmp r2, r6						@ Compara o indice com o numero de callbacks
+	beq IRQ_remove_callback_loop_fim
+
+	mul r8, r2, #12
+	add r9, r8, #4
+	add r10, r9, #4
+	ldr r0, [r5, r8, #12]
+	str r0, [r5, r8]
+	ldr r0, [r5, r9, #12]
+	str r0, [r5, r9]
+	ldr r0, [r5, r10, #12]
+	str r0, [r5, r10]
+	add r2, r2, #1
+	b IRQ_remove_callback_loop
+IRQ_remove_callback_loop_fim:
+	sub r6, r6, #1
+	ldr r0, =CALLBACK_COUNTER
+	str r6, [r0]
 
 IRQ_callback_for_continue:
 	add r7, r7 , #1
