@@ -564,19 +564,26 @@ IRQ_callback_for_start:
 
 	@Parte que remove o callback
 	mov r2, r7
+	mov r0, #12
+	mul r8, r2, r0
+	add r9, r8, #12
 IRQ_remove_callback_loop:
 	cmp r2, r6						@ Compara o indice com o numero de callbacks
 	beq IRQ_remove_callback_loop_fim
 
-	mul r8, r2, #12
-	add r9, r8, #4
-	add r10, r9, #4
-	ldr r0, [r5, r8, #12]
+	ldr r0, [r5, r9]
 	str r0, [r5, r8]
-	ldr r0, [r5, r9, #12]
-	str r0, [r5, r9]
-	ldr r0, [r5, r10, #12]
-	str r0, [r5, r10]
+	add r8, r8, #4
+	add r9, r9, #4
+	ldr r0, [r5, r9]
+	str r0, [r5, r8]
+	add r8, r8, #4
+	add r9, r9, #4
+	ldr r0, [r5, r9]
+	str r0, [r5, r8]
+	add r8, r8, #4
+	add r9, r9, #4
+
 	add r2, r2, #1
 	b IRQ_remove_callback_loop
 IRQ_remove_callback_loop_fim:
