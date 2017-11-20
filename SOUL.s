@@ -267,16 +267,16 @@ read_sonar_end:
 @	 Caso contrário retorna 0.
 register_proximity_callback:
 	push {r4-r7,lr}
-	mov r4, r0					@Coloca identifacador do sonar em R4
+	mov r4, r0					@Coloca identificador do sonar em R4
 	mov r5, r1					@Limiar de distancia desejado em R5
 	mov r6, r2					@Coloca o ponteiro da funcao que é pra retornar em R6
 
-	@Verifica se o tempo do sistema é maior que o pedido
+	@Verifica se o id do sonar existe(entre 0 e 15)
 	cmp r0, #15
 	movhi r0, #-2
 	pophi {r4-r7, pc}
-	
-	@Verifica se ha espaco para mais um alarme
+
+	@Verifica se ha espaco para mais um callback
 	ldr r2, =CALLBACK_COUNTER
 	ldr r3, =MAX_CALLBACKS
 	ldr r0, [r2]
@@ -285,20 +285,20 @@ register_proximity_callback:
 	moveq r0, #-1				@Se o numero for igual, ele nao pode *adicionar* mais callbacks, portanto erro
 	popeq {r4-r7, pc}
 
-	@Colocar novo alarme no vetor de structs de alarm
-	mov r7, r0					@R0 possuia o valor de CALLBACK_COUNTER, agora R7 o contém
+	@Colocar novo callback no vetor de structs de callbacks
+	mov r7, r0					@R0 possuia o valor de CALLBACK_COUNTER, agora tambem R7 o contém
 	ldr r1, =CALLBACK_ARRAY		@Carrega o comeco do vetor de structs em R1
 	mov r0, r0, lsl #3			@Coloca R0 em 4 bytes atras do ultimo elemento da struct
-	add r0 r0, #4				@Complementa esses 4 bytes, chegando no final do array
+	add r0, r0, #4				@Complementa esses 4 bytes, chegando no final do array
 	str r4, [r1, r0]			@Coloca o identificador de sonar na struct
-	add r0, r0, #4				
+	add r0, r0, #4
 	str r5, [r1, r0]			@Armazena o limiar de distancia no meio da struct
-	add r0, r0, #4				
+	add r0, r0, #4
 	str r6, [r1, r0]			@Armazena o ponteiro da funcao que é pra retornar no fim da função
-	
+
 	add r7, r7, #1				@Apos a adicao do novo elemento no vetor, o CALLBACK_COUNTER sobe
-	str r7, [r2]				@Atualiza CALLBACK_COUNTER 
-	mov r0, #0					@Operacao feita com sucesso, retorna R0=0	
+	str r7, [r2]				@Atualiza CALLBACK_COUNTER
+	mov r0, #0					@Operacao feita com sucesso, retorna R0=0
 	pop {r4-r7,pc}
 @set_motor_speed
 @ Parametros:
@@ -420,7 +420,7 @@ set_time:
 @	 -2 caso o tempo seja menor do que o tempo atual do sistema.
 @	  0 caso contrário.
 set_alarm:
-	push {r4-r7, lr}
+	push {r4-r6, lr}
 	mov r4, r0					@Ponteiro da funcao em R4
 	mov r5, r1					@Tempo do sistema desejado em R5
 
@@ -428,9 +428,9 @@ set_alarm:
 	ldr r2, =CONTADOR			@Endero de contador vai pra R2
 	ldr r0, [r2]				@Coloca o valor de contador em R0
 	cmp r0, r5
-	movhi r0, #-2
-	pophi {r4-r7, pc}
-	
+	movlo r0, #-2				@Se o tempo pedido é menor que o do sistema ele retorna.
+	poplo {r4-r6, pc}
+
 	@Verifica se ha espaco para mais um alarme
 	ldr r2, =ALARM_COUNTER
 	ldr r3, =MAX_ALARMS
@@ -438,7 +438,7 @@ set_alarm:
 	ldr r1, [r3]
 	cmp r1, r0
 	moveq r0, #-1
-	popeq {r4-r7, pc}
+	popeq {r4-r6, pc}
 
 	@Colocar novo alarme no vetor de structs de alarm
 	@R0 possui ALARM_COUNTER
@@ -448,19 +448,19 @@ set_alarm:
 	str r4, [r1, r0]			@Coloca o ponteiro na struct
 	add r0, r0, #4				@Avanca 4 Bytes da posicao
 	str r5, [r1, r0]			@Armazena o tempo do sistema no final da struct
-	
-	add r7, r7, #1				@Apos a adicao do novo elemento no vetor, o ALARM_COUNTER sobe
-	str r7, [r2]				@Atualiza o valor de ALARM_COUNTER
-	mov r0, #0					@Operacao feita com sucesso, retorna R0=0	
-	pop {r4-r7, pc}
+
+	add r6, r6, #1				@Apos a adicao do novo elemento no vetor, o ALARM_COUNTER sobe
+	str r6, [r2]				@Atualiza o valor de ALARM_COUNTER
+	mov r0, #0					@Operacao feita com sucesso, retorna R0=0
+	pop {r4-r6, pc}
 
 @change_back_to_IRQ_mode:
 @ Paramentros:
 @	R0: Endereco da posicao que quer voltar
 change_back_to_IRQ_mode:
-	@O código esta no modo supervisor, para mudar para o modo IRQ, precisa reataurar a pilha pro modo original
+	@O código esta no modo supervisor, para mudar para o modo IRQ, precisa restaurar a pilha pro modo original
 	@Apos o pop, r0 tera o endereco de memoria do IRQ
-	pop {r0-r12}				
+	pop {r0-r12}
 	msr CPSR_c, #0x12			@Coloca no modo IRQ
 	bx r0
 
@@ -484,7 +484,7 @@ IRQ_HANDLER:
 	@Verificar se algum alarme ativou
 	mov r4, r0					@R4 tera o valor do tempo do sistema(CONTADOR)
 	ldr r5, =ALARM_ARRAY		@R5 tera o valor do endereco de array
-	ldr r0, =ALARM_COUNTER		
+	ldr r0, =ALARM_COUNTER
 	ldr r6, [r0]				@R6 tera o contador de elementos do array
 	mov r0, #0					@R0 sera a variavel de inducao do for
 IRQ_alarm_for_start:
@@ -500,22 +500,23 @@ IRQ_alarm_for_start:
 	@TODO: Tirar alarme do array, consertar array para que o elemento retirado nao interfira
 	@TODO: Garantir que nao ha interrupcoes no meio de outra
 	ldr r7, [r5, r1]			@Carrega valor do ponteiro da funcao que eh pra retornar em r7
-	push {r0-r12, lr}			
+	push {r0-r12, lr}
     msr CPSR_c, #0x10			@Muda pra usuario
 	blx r7
 	pop {r0-r12, lr}			@O push e pop relativo a este talvez nao sejam necessarios, mas pra lr sim
-	@TODO: Retirar callback e arrumar exatamente aqui
+	@TODO: Retirar alarme e arrumar exatamente aqui
 	mov r7, #23					@R7 tera codigo do register_proximity_call
 	add r0, pc, #8				@R0 tera o endereço depois de SVC 0x0, mudando de User pra IRQ
 	svc 0x0
-	
+
 IRQ_alarm_for_contine:
 	add r0, r0 , #1
+	b IRQ_alarm_for_start
 IRQ_alarm_for_end:
 
-	@Verificar se algum callback foi ativou
+	@Verificar se algum callback foi ativado
 	ldr r5, =CALLBACK_ARRAY			@R5 tera o valor do endereco de array
-	ldr r0, =CALLBACK_COUNTER		
+	ldr r0, =CALLBACK_COUNTER
 	ldr r6, [r0]					@R6 tera o contador de elementos do array
 	mov r7, #0						@R7 sera a variavel de inducao do for
 IRQ_callback_for_start:
@@ -533,21 +534,25 @@ IRQ_callback_for_start:
 	cmp r0, r1
 	bne IRQ_callback_for_continue	@Senao for igual, continua o for
 
-	@Se o codigo chegar aqui, achou um alarme legitimo
+	@Se o codigo chegar aqui, achou um callback legitimo
 	@TODO: Tirar alarme do array, consertar array para que o elemento retirado nao interfira
 	ldr r0, [r5, r10]			@Carrega valor do ponteiro da funcao que eh pra retornar em R0
-	push {r0-r12, lr}			
+	push {r0-r12, lr}
     msr CPSR_c, #0x10			@Muda pra usuario
-	blx r7
+	blx r0
 	pop {r0-r12, lr}			@O push e pop relativo a este talvez nao sejam necessarios, mas pra lr sim
 	@TODO: Retirar callback e arrumar exatamente aqui
+	push {r7}
 	mov r7, #23					@R7 tera codigo do register_proximity_call
 	add r0, pc, #8				@R0 tera o endereço depois de SVC 0x0, mudando de User pra IRQ
 	svc 0x0
+	pop {r7}
 
 IRQ_callback_for_continue:
 	add r7, r7 , #1
+	b IRQ_callback_for_start
 IRQ_callback_for_end:
+
     sub lr, lr, #4
     pop {r0-r12}
     movs pc, lr
