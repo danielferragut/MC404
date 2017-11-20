@@ -301,7 +301,8 @@ register_proximity_callback:
 	@TODO: Talvez desse modo seja melhor.
 	@ mov r0, r0, lsl #3			@Coloca R0 em 4 bytes atras do ultimo elemento da struct
 	@ add r0, r0, #4				@Complementa esses 4 bytes, chegando no final do array
-	mul r0, r0, #12
+	mov r0, #12
+	mul r0, r7, r0
 	str r4, [r1, r0]			@Coloca o identificador de sonar na struct
 	add r0, r0, #4
 	str r5, [r1, r0]			@Armazena o limiar de distancia no meio da struct
@@ -538,7 +539,8 @@ IRQ_callback_for_start:
 	@TODO: Acho que esta errado
 	@mov r8, r7, lsl #3				@R8 fica 4 bytes atras do elemento CALLBACK_ARRAY[R7]
 	@add r8, r8, #4					@R8 tera o endereco do sonar do elemento
-	mul r8, r7, #12
+	mov r0, #12
+	mul r8, r7, r0
 	add r9, r8, #4					@R9 tera o endereco do limiar do elemento
 	add r10, r9, #4					@R10 tera o endereco do ponteiro da funcao que é pra ser retornada
 
