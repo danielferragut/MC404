@@ -156,6 +156,10 @@ RESET_HANDLER:
     msr CPSR_c, #0x10
     @ Ajusta a pilha do usuario
     ldr sp, =USER_STACK_START
+    @TODO TODO TODO TODO TODO TODO TODO
+    @mov r0, #20
+    @mov r1, #20
+    @b set_motors_speed
 	@TODO: Habilitar interrupçoes para user
     bx r0
 
@@ -199,7 +203,7 @@ SVC_HANDLER:
 	bleq change_back_to_IRQ_mode
 
     @Retorna pro codigo do usuario
-	pop {r7, lr}
+    pop {r7, lr}
 	movs pc, lr
 
 @read_sonar
@@ -329,15 +333,15 @@ set_motor_speed:
 
     @ Checar se a velocidade eh valida
     @ Como o parametro no LoCo e BiCo eh unsigned char, o valor nunca vai ser negativo
-    cmp r4, #0b111111
+    cmp r5, #0b111111
     movhi r0, #-2
 	pop {r4,r5,pc}
     @ Se nao pular, velocidade eh valida
 
     @ Trecho de codigo que ve qual motor tem velocidade alterada
-    cmp r5, #0
+    cmp r4, #0
     beq SVC_motor_speed_0
-    cmp r5, #1
+    cmp r4, #1
     beq SVC_motor_speed_1
     @ Caso nenhum dos dois, motor invalido
     mov r0, #-1
@@ -389,15 +393,20 @@ set_motors_speed:
 	mov r1, r4
 	bl set_motor_speed
     cmp r0, #0
-    movne r0, #-2
+    movne r0, #-1
     popne {r4, r5, pc}
 	mov r0, #1
 	mov r1, r5
 	bl set_motor_speed
+    cmp r0, #0
     popne {r4, r5, pc}
 
     @TODO: Wrote como 0 ou 1
 	mov r0, #0
+    @TODO TODO TODO TODO TODO TODO
+    @mov r0, #20
+    @mov r1, #20
+    @b set_motors_speed
 	pop {r4,r5,pc}
 
 @get_time
@@ -477,7 +486,7 @@ IRQ_HANDLER:
     @Move a pilha para a memoria alocada
     ldr sp, =IRQ_STACK_START
 
-    push {r0-r12}
+    push {r0-r12, lr}
     @Sinalizacao para GPT que a interrupcao foi tratada
 	@TODO: Isso daqui eh vital pra alguma coisa, descobrir o que
     mov r0, #1
@@ -615,5 +624,5 @@ IRQ_callback_for_continue:
 IRQ_callback_for_end:
 
     sub lr, lr, #4
-    pop {r0-r12}
+    pop {r0-r12, lr}
     movs pc, lr
