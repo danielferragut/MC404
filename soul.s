@@ -258,7 +258,7 @@ read_sonar_loop_3:
 	cmp r0, #1
 	bne read_sonar_wait			@ Se for diferente de 0, volta ao laco para esperar.
 	ldr r0, [r1, #GPIO_PSR]
-    
+
 
     @ As operacoes a seguir fazem com que so SONAR_DATA[0 - 11] fique em r0 (comecando no bit 0)
     mov r0, r0, lsl #14
@@ -386,24 +386,26 @@ set_motors_speed:
     mov r4, r0
     mov r5, r1
 
-	mov r0, #0
-	mov r1, r4
-	bl set_motor_speed
-    cmp r0, #0
-    movne r0, #-1
-    popne {r4, r5, pc}
-	mov r0, #1
-	mov r1, r5
-	bl set_motor_speed
-    cmp r0, #0
-    popne {r4, r5, pc}
+	cmp r4, #0b111111
+    movhi r0, #-1
+	pophi {r4,r5,pc}
+
+	cmp r5, #0b111111
+    movhi r0, #-2
+	pophi {r4,r5,pc}
+
+	ldr r1, =GPIO_BASE
+    ldr r2, [r1, #GPIO_DR]   @ Pega o DR atual
+    ldr r3, =0xFFFC0000      @ Mascara para zerar os bits [18,31]
+    bic r0, r2, r3           @ Zera os bits de DR nas posicoes [18,31]
+    mov r3, r4, lsl #19      @ Move o primeiro bit da velocidade para o bit 19
+    orr r0, r0, r3           @ Escreve a velocidade do motor0 em DR
+	mov r3, r5, lsl #26      @ Move o primeiro bit da velocidade para o bit 26
+    orr r0, r0, r3           @ Escreve a velocidade do motor1 em DR
+    str r0, [r1, #GPIO_DR]   @ Escreve ele em DR
 
     @TODO: Wrote como 0 ou 1
 	mov r0, #0
-    @TODO TODO TODO TODO TODO TODO
-    @mov r0, #20
-    @mov r1, #20
-    @b set_motors_speed
 	pop {r4,r5,pc}
 
 @get_time
@@ -524,7 +526,7 @@ IRQ_alarm_for_start:
 	svc 0x0
     pop {r7}
 
-	@Parte que remove o alarme 
+	@Parte que remove o alarme
     sub r6, r6, #1
 	sub r2, r6, r7
     sub r2, r2, #1                  @Quantidade de elementos a frente do elemento atual
@@ -535,11 +537,11 @@ IRQ_alarm_for_start:
     mov r0, #0                      @R0 sera a variavel de inducao do proximo for
 @For que ira de 4 a bytes sobreescrevendo o elemento a ser eliminado, e arrumando o array
 IRQ_remove_alarm_loop:
-	cmp r0, r2						
+	cmp r0, r2
 	beq IRQ_remove_alarm_loop_fim
 
 	ldr r1, [r5, r9]                @R9 tem a primeira informacao o proximo elemento, sendo R5 o comeco do array
-	str r1, [r5, r8]                @ 
+	str r1, [r5, r8]                @
 	add r8, r8, #4
 	add r9, r9, #4
 
@@ -580,7 +582,7 @@ IRQ_callback_for_start:
 	ldr r0, [r5, r10]				@Carrega valor do ponteiro da funcao que eh pra retornar em R0
     msr CPSR_c, #0x10				@Muda pra usuario
 	blx r0
-	
+
     push {r7}
 	mov r7, #23						@R7 tera codigo do register_proximity_call
 	add r0, pc, #8					@R0 tera o endereço depois de SVC 0x0, mudando de User pra IRQ
@@ -598,12 +600,12 @@ IRQ_callback_for_start:
     mov r0, #0                      @R0 sera a variavel de inducao do proximo for
 @For que ira de 4 a bytes sobreescrevendo o elemento a ser eliminado, e arrumando o array
 IRQ_remove_callback_loop:
-	cmp r0, r2						
+	cmp r0, r2
 	beq IRQ_remove_callback_loop_fim
 
     @Copia 4 bytes de um dado de um elemento para 12 bytes atras no array
-	ldr r1, [r5, r9]              
-	str r1, [r5, r8]                
+	ldr r1, [r5, r9]
+	str r1, [r5, r8]
 	add r8, r8, #4
 	add r9, r9, #4
 
