@@ -164,7 +164,7 @@ SVC_HANDLER:
 	@ Primeiro se ajusta a pilha para o endereco de SVC_STACK_START
 	ldr sp, =SVC_STACK_START
 	@TODO: Ver quais registradores usou e tirar os que nao usardido
-	push {r0-r12}
+	push {r7}
 	@SVC vai receber um codigo em R7, indicando o que esta sendo pedido
 	@Codigo: 16 - read_sonar
 	@Codigo: 17 - register_proximity_callback
@@ -199,7 +199,7 @@ SVC_HANDLER:
 	bleq change_back_to_IRQ_mode
 
     @Retorna pro codigo do usuario
-	pop {r0-r12}
+	pop {r7}
 	movs pc, lr
 
 @read_sonar
@@ -385,20 +385,16 @@ set_motors_speed:
     mov r4, r0
     mov r5, r1
 
-    @Verifica as velocidades do motor 0 e 1
-    cmp r4, #0b111111
-    movhi r0, #-1
-	pophi {r4,r5,pc}
-    cmp r5, #0b111111
-    movhi r0, #-2
-	pophi {r4,r5,pc}
-
 	mov r0, #0
 	mov r1, r4
 	bl set_motor_speed
+    cmp r0, #0
+    movne r0, #-2
+    popne {r4, r5, pc}
 	mov r0, #1
 	mov r1, r5
 	bl set_motor_speed
+    popne {r4, r5, pc}
 
     @TODO: Wrote como 0 ou 1
 	mov r0, #0
@@ -473,7 +469,7 @@ set_alarm:
 change_back_to_IRQ_mode:
 	@O código esta no modo supervisor, para mudar para o modo IRQ, precisa restaurar a pilha pro modo original
 	@Apos o pop, r0 tera o endereco de memoria do IRQ
-	pop {r0-r12}
+	pop {r7}
 	msr CPSR_c, #0x12			@Coloca no modo IRQ
 	bx r0
 
@@ -513,14 +509,34 @@ IRQ_alarm_for_start:
 	@TODO: Tirar alarme do array, consertar array para que o elemento retirado nao interfira
 	@TODO: Garantir que nao ha interrupcoes no meio de outra
 	ldr r7, [r5, r1]			@Carrega valor do ponteiro da funcao que eh pra retornar em r7
-	push {r0-r12, lr}
     msr CPSR_c, #0x10			@Muda pra usuario
 	blx r7
-	pop {r0-r12, lr}			@O push e pop relativo a este talvez nao sejam necessarios, mas pra lr sim
 	@TODO: Retirar alarme e arrumar exatamente aqui
 	mov r7, #23					@R7 tera codigo do register_proximity_call
 	add r0, pc, #8				@R0 tera o endereço depois de SVC 0x0, mudando de User pra IRQ
 	svc 0x0
+
+	@Parte que remove o alarme 
+	sub r2, r6, r7
+    sub r2, r2, #1                  @Quantidade de elementos a frente do elemento atual
+    mov r0, #2
+    mul r2, r2, r0                  @Quantidade de palavras(4 bytes) presentes nos elementos restantes
+	mov r8, r7, lsl #3
+    add r9, r8, #8                  @Vai pro proximo
+    mov r0, #0                      @R0 sera a variavel de inducao do proximo for
+@For que ira de 4 a bytes sobreescrevendo o elemento a ser eliminado, e arrumando o array
+IRQ_remove_alarm_loop:
+	cmp r0, r2						
+	beq IRQ_remove_alarm_loop_fim
+
+	ldr r1, [r5, r9]                @R9 tem a primeira informacao o proximo elemento, sendo R5 o comeco do array
+	str r1, [r5, r8]                @ 
+	add r8, r8, #4
+	add r9, r9, #4
+
+	add r0, r0, #4
+	b IRQ_remove_alarm_loop
+IRQ_remove_alarm_loop_fim:
 
 IRQ_alarm_for_contine:
 	add r0, r0 , #1
@@ -553,44 +569,41 @@ IRQ_callback_for_start:
 	@Se o codigo chegar aqui, achou um callback legitimo
 	@TODO: Tirar callback do array, consertar array para que o elemento retirado nao interfira
 	ldr r0, [r5, r10]				@Carrega valor do ponteiro da funcao que eh pra retornar em R0
-	push {r0-r12, lr}
     msr CPSR_c, #0x10				@Muda pra usuario
 	blx r0
-	pop {r0-r12, lr}				@O push e pop relativo a este talvez nao sejam necessarios, mas pra lr sim
-	@TODO: Retirar callback e arrumar exatamente aqui
-	push {r7}
+	
+    push {r7}
 	mov r7, #23						@R7 tera codigo do register_proximity_call
 	add r0, pc, #8					@R0 tera o endereço depois de SVC 0x0, mudando de User pra IRQ
 	svc 0x0
 	pop {r7}
 
 	@Parte que remove o callback
-	mov r2, r7
-	mov r0, #12
-	mul r8, r2, r0
-	add r9, r8, #12
+    sub r6, r6, #1                  @Tira um elemento da quantidade de callbacks
+	sub r2, r6, r7                  @Quantidade de elementos na frente do elemento a ser eliminado
+    mov r0, #3                      @Cada elemento tem 3 palavras de 4 bytes
+    mul r2, r2, r0                  @Quantidade de palavras(4 bytes) presentes nos elementos restantes
+    mov r0, #12
+	mul r8, r7, r0                  @Vai pro elemento atual a ser eliminado
+	add r9, r8, r0                  @Vai pro proximo
+    mov r0, #0                      @R0 sera a variavel de inducao do proximo for
+@For que ira de 4 a bytes sobreescrevendo o elemento a ser eliminado, e arrumando o array
 IRQ_remove_callback_loop:
-	cmp r2, r6						@ Compara o indice com o numero de callbacks
+	cmp r0, r2						
 	beq IRQ_remove_callback_loop_fim
 
-	ldr r0, [r5, r9]
-	str r0, [r5, r8]
-	add r8, r8, #4
-	add r9, r9, #4
-	ldr r0, [r5, r9]
-	str r0, [r5, r8]
-	add r8, r8, #4
-	add r9, r9, #4
-	ldr r0, [r5, r9]
-	str r0, [r5, r8]
+    @Copia 4 bytes de um dado de um elemento para 12 bytes atras no array
+	ldr r1, [r5, r9]              
+	str r1, [r5, r8]                
 	add r8, r8, #4
 	add r9, r9, #4
 
-	add r2, r2, #1
+	add r0, r0, #4
 	b IRQ_remove_callback_loop
 IRQ_remove_callback_loop_fim:
-	sub r6, r6, #1
+
 	ldr r0, =CALLBACK_COUNTER
+    sub r7, r7, #1
 	str r6, [r0]
 
 IRQ_callback_for_continue:
