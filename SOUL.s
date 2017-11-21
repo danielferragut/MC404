@@ -2,7 +2,7 @@
 @	Nome:Daniel Pereira Ferragut	Nome:Gabriel Ryo Hioki
 @	RA:169488						RA:172434
 @
-@ Ultima modificao: 16:55, 15 de novembro 2017
+@ Ultima modificao: 15:31, 21 de novembro 2017
 
 .org 0x0
 .section .iv,"a"
@@ -512,18 +512,18 @@ IRQ_alarm_for_start:
     msr CPSR_c, #0x10			@Muda pra usuario
 	blx r0
 
-    push{r7}
+    push {r7}
     mov r7, #23					@R7 tera codigo do register_proximity_call
 	add r0, pc, #8				@R0 tera o endereço depois de SVC 0x0, mudando de User pra IRQ
 	svc 0x0
-    pop{r7}
+    pop {r7}
 
 	@Parte que remove o alarme 
     sub r6, r6, #1
 	sub r2, r6, r7
     sub r2, r2, #1                  @Quantidade de elementos a frente do elemento atual
     mov r0, #2
-    mul r2, r2, r0                  @Quantidade de palavras(4 bytes) presentes nos elementos restantes
+    mul r2, r0, r2                  @Quantidade de palavras(4 bytes) presentes nos elementos restantes
 	mov r8, r7, lsl #3
     add r9, r8, #8                  @Vai pro proximo
     mov r0, #0                      @R0 sera a variavel de inducao do proximo for
@@ -540,9 +540,12 @@ IRQ_remove_alarm_loop:
 	add r0, r0, #4
 	b IRQ_remove_alarm_loop
 IRQ_remove_alarm_loop_fim:
+	ldr r0, =ALARM_COUNTER
+    sub r7, r7, #1
+	str r6, [r0]
 
-IRQ_alarm_for_contine:
-	add r0, r0 , #1
+IRQ_alarm_for_continue:
+	add r7, r7 , #1
 	b IRQ_alarm_for_start
 IRQ_alarm_for_end:
 
@@ -582,7 +585,7 @@ IRQ_callback_for_start:
     sub r6, r6, #1                  @Tira um elemento da quantidade de callbacks
 	sub r2, r6, r7                  @Quantidade de elementos na frente do elemento a ser eliminado
     mov r0, #3                      @Cada elemento tem 3 palavras de 4 bytes
-    mul r2, r2, r0                  @Quantidade de palavras(4 bytes) presentes nos elementos restantes
+    mul r2, r0, r2                  @Quantidade de palavras(4 bytes) presentes nos elementos restantes
     mov r0, #12
 	mul r8, r7, r0                  @Vai pro elemento atual a ser eliminado
 	add r9, r8, r0                  @Vai pro proximo
