@@ -1,12 +1,14 @@
-LoCo: BiCo
+LoCo: LoCo2
 	arm-eabi-as loco.s -o loco.o
+LoCo2: BiCo
+	arm-eabi-gcc loco.c -S -o loco.s
 BiCo: SOUL
 	arm-eabi-as bico.s -o bico.o
 SOUL:
 	arm-eabi-as SOUL.s -o soul.o
 
 source:
-	ln -s /home/specg12-2/mc404/simulador/set_path_player.sh
+	ln -s /home/specg12-2/mc404/simulador/set_path_player.sh src
 
 clean:
 	rm loco.o bico.o soul.o
