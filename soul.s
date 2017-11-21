@@ -215,7 +215,7 @@ read_sonar:
 	pophi {r4,pc}				@Se o sonar for maior que 15, ele é inválido, portanto, erro
 
 	ldr r1, =GPIO_BASE
-	ldr r4, [r1, #GPIO_PSR]
+	ldr r4, [r1, #GPIO_DR]
 
 	bic r4, r4, #0b111110       @ Zera o sonar_mux para colocar o valor desejado e zera o trigger.
     add r4, r4, r0, lsl #2
@@ -257,6 +257,8 @@ read_sonar_loop_3:
 	and r0, r4, #1
 	cmp r0, #1
 	bne read_sonar_wait			@ Se for diferente de 0, volta ao laco para esperar.
+	ldr r0, [r1, #GPIO_PSR]
+    
 
     @ As operacoes a seguir fazem com que so SONAR_DATA[0 - 11] fique em r0 (comecando no bit 0)
     mov r0, r0, lsl #14
@@ -330,7 +332,7 @@ set_motor_speed:
     @ Como o parametro no LoCo e BiCo eh unsigned char, o valor nunca vai ser negativo
     cmp r5, #0b111111
     movhi r0, #-2
-	pop {r4,r5,pc}
+	pophi {r4,r5,pc}
     @ Se nao pular, velocidade eh valida
 
     @ Trecho de codigo que ve qual motor tem velocidade alterada
@@ -473,7 +475,7 @@ set_alarm:
 change_back_to_IRQ_mode:
 	@O código esta no modo supervisor, para mudar para o modo IRQ, precisa restaurar a pilha pro modo original
 	@Apos o pop, r0 tera o endereco de memoria do IRQ
-	pop {r7}
+	pop {r7, lr}
 	msr CPSR_c, #0x12			@Coloca no modo IRQ
 	bx r0
 
