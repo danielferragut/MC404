@@ -164,7 +164,7 @@ SVC_HANDLER:
 	@ Primeiro se ajusta a pilha para o endereco de SVC_STACK_START
 	ldr sp, =SVC_STACK_START
 	@TODO: Ver quais registradores usou e tirar os que nao usardido
-	push {r7}
+	push {r7, lr}
 	@SVC vai receber um codigo em R7, indicando o que esta sendo pedido
 	@Codigo: 16 - read_sonar
 	@Codigo: 17 - register_proximity_callback
@@ -199,7 +199,7 @@ SVC_HANDLER:
 	bleq change_back_to_IRQ_mode
 
     @Retorna pro codigo do usuario
-	pop {r7}
+	pop {r7, lr}
 	movs pc, lr
 
 @read_sonar
