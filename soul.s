@@ -153,10 +153,13 @@ RESET_HANDLER:
 
     @ Trecho de codigo que ira mudar para o codigo do usuario
     ldr r0, =USER_CODE
-    msr CPSR_c, #0x10
+    mrs r1,CPSR
+    bic r1, r1, #0b10011111
+    orr r1, r1, #0b00010000
+    msr CPSR, r1
+    
     @ Ajusta a pilha do usuario
     ldr sp, =USER_STACK_START
-	@TODO: Habilitar interrupçoes para user
     bx r0
 
 @Handler de Supervisor Calls
@@ -510,7 +513,7 @@ IRQ_alarm_for_start:
 	mov r1, r7, lsl #3			@Coloca em r1 o numero de bytes que precisa pular pra chegar no ponteiro do elemento
 	add r2, r1, #4				@Coloca em r2 o numero de bytes para chegar no tempo do sistema do elemento
 	ldr r3, [r5, r2]			@Carrega em r3 o tempo do sistema necessario
-	cmp r3, r5					@Compara o tempo do elemento com o tempo atual do sistema
+	cmp r3, r4					@Compara o tempo do elemento com o tempo atual do sistema
 	bne IRQ_alarm_for_continue	@Senao for igual, continua o for
 
 	@Se o codigo chegar aqui, achou um alarme legitimo
