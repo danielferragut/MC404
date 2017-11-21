@@ -495,11 +495,11 @@ IRQ_HANDLER:
 	ldr r5, =ALARM_ARRAY		@R5 tera o valor do endereco de array
 	ldr r0, =ALARM_COUNTER
 	ldr r6, [r0]				@R6 tera o contador de elementos do array
-	mov r0, #0					@R0 sera a variavel de inducao do for
+	mov r7, #0					@R0 sera a variavel de inducao do for
 IRQ_alarm_for_start:
-	cmp r0, r6
+	cmp r7, r6
 	beq IRQ_alarm_for_end
-	mov r1, r0, lsl #3			@Coloca em r1 o numero de bytes que precisa pular pra chegar no ponteiro do elemento
+	mov r1, r7, lsl #3			@Coloca em r1 o numero de bytes que precisa pular pra chegar no ponteiro do elemento
 	add r2, r1, #4				@Coloca em r2 o numero de bytes para chegar no tempo do sistema do elemento
 	ldr r3, [r5, r2]			@Carrega em r3 o tempo do sistema necessario
 	cmp r3, r5					@Compara o tempo do elemento com o tempo atual do sistema
@@ -508,15 +508,18 @@ IRQ_alarm_for_start:
 	@Se o codigo chegar aqui, achou um alarme legitimo
 	@TODO: Tirar alarme do array, consertar array para que o elemento retirado nao interfira
 	@TODO: Garantir que nao ha interrupcoes no meio de outra
-	ldr r7, [r5, r1]			@Carrega valor do ponteiro da funcao que eh pra retornar em r7
+	ldr r0, [r5, r1]			@Carrega valor do ponteiro da funcao que eh pra retornar em r7
     msr CPSR_c, #0x10			@Muda pra usuario
-	blx r7
-	@TODO: Retirar alarme e arrumar exatamente aqui
-	mov r7, #23					@R7 tera codigo do register_proximity_call
+	blx r0
+
+    push{r7}
+    mov r7, #23					@R7 tera codigo do register_proximity_call
 	add r0, pc, #8				@R0 tera o endereço depois de SVC 0x0, mudando de User pra IRQ
 	svc 0x0
+    pop{r7}
 
 	@Parte que remove o alarme 
+    sub r6, r6, #1
 	sub r2, r6, r7
     sub r2, r2, #1                  @Quantidade de elementos a frente do elemento atual
     mov r0, #2
@@ -552,9 +555,6 @@ IRQ_callback_for_start:
 	cmp r7, r6
 	beq IRQ_callback_for_end
 
-	@TODO: Acho que esta errado
-	@mov r8, r7, lsl #3				@R8 fica 4 bytes atras do elemento CALLBACK_ARRAY[R7]
-	@add r8, r8, #4					@R8 tera o endereco do sonar do elemento
 	mov r0, #12
 	mul r8, r7, r0
 	add r9, r8, #4					@R9 tera o endereco do limiar do elemento
