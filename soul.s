@@ -292,9 +292,8 @@ register_proximity_callback:
 
 	@Verifica se ha espaco para mais um callback
 	ldr r2, =CALLBACK_COUNTER
-	ldr r3, =MAX_CALLBACKS
+	ldr r1, =MAX_CALLBACKS
 	ldr r0, [r2]
-	ldr r1, [r3]
 	cmp r1, r0
 	moveq r0, #-1				@Se o numero for igual, ele nao pode *adicionar* mais callbacks, portanto erro
 	popeq {r4-r7, pc}
@@ -453,9 +452,8 @@ set_alarm:
 
 	@Verifica se ha espaco para mais um alarme
 	ldr r2, =ALARM_COUNTER
-	ldr r3, =MAX_ALARMS
+	ldr r1, =MAX_ALARMS
 	ldr r0, [r2]
-	ldr r1, [r3]
 	cmp r1, r0
 	moveq r0, #-1
 	popeq {r4-r6, pc}
@@ -501,9 +499,6 @@ IRQ_HANDLER:
     add r0, r0, #1
     str r0, [r1]
 
-    @TODO TODO TODO TODO TODO
-    @b IRQ_callback_for_end
-
 	@Verificar se algum alarme ativou
 	mov r4, r0					@R4 tera o valor do tempo atual do sistema(CONTADOR)
 	ldr r5, =ALARM_ARRAY		@R5 tera o valor do endereco de array
@@ -522,7 +517,7 @@ IRQ_alarm_for_start:
 	@Se o codigo chegar aqui, achou um alarme legitimo
 	@TODO: Garantir que nao ha interrupcoes no meio de outra
 	ldr r0, [r5, r1]			@Carrega valor do ponteiro da funcao que eh pra retornar em r7
-    msr CPSR_c, #0x10			@Muda pra usuario
+    msr CPSR_c, #0x10			@Muda pra usuario       @TODO: interrupcoes?
 	blx r0
 
     push {r7}
@@ -533,8 +528,7 @@ IRQ_alarm_for_start:
 
 	@Parte que remove o alarme
     sub r6, r6, #1
-	sub r2, r6, r7
-    sub r2, r2, #1                  @Quantidade de elementos a frente do elemento atual
+	sub r2, r6, r7                  @R2 Vai ter a quantidade de elementos a serem ajustados
     mov r0, #2
     mul r2, r0, r2                  @Quantidade de palavras(4 bytes) presentes nos elementos restantes
 	mov r8, r7, lsl #3
@@ -550,12 +544,12 @@ IRQ_remove_alarm_loop:
 	add r8, r8, #4
 	add r9, r9, #4
 
-	add r0, r0, #4
+	add r0, r0, #1
 	b IRQ_remove_alarm_loop
 IRQ_remove_alarm_loop_fim:
 	ldr r0, =ALARM_COUNTER
-    sub r7, r7, #1
 	str r6, [r0]
+    sub r7, r7, #1                  @Um elemento foi tirado do array, variavel de inducao precisa ser ajustada
 
 IRQ_alarm_for_continue:
 	add r7, r7 , #1
@@ -614,13 +608,13 @@ IRQ_remove_callback_loop:
 	add r8, r8, #4
 	add r9, r9, #4
 
-	add r0, r0, #4
+	add r0, r0, #1
 	b IRQ_remove_callback_loop
 IRQ_remove_callback_loop_fim:
 
 	ldr r0, =CALLBACK_COUNTER
-    sub r7, r7, #1
 	str r6, [r0]
+    sub r7, r7, #1                   @Como um elemento foi retirado do array, variavel de inducao precisa ser ajustada
 
 IRQ_callback_for_continue:
 	add r7, r7 , #1
