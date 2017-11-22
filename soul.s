@@ -79,8 +79,7 @@ RESET_HANDLER:
     str r0, [r1]
 
     @ Valor que ele vai contar
-    ldr r0,=TIME_SZ
-    ldr r0, [r0]
+    ldr r0, =TIME_SZ
     ldr r1, =GPT_OCR1
     str r0, [r1]
 
@@ -500,6 +499,9 @@ IRQ_HANDLER:
     ldr r0, [r1]
     add r0, r0, #1
     str r0, [r1]
+
+    @TODO TODO TODO TODO TODO
+    @b IRQ_callback_for_end
 
 	@Verificar se algum alarme ativou
 	mov r4, r0					@R4 tera o valor do tempo do sistema(CONTADOR)
