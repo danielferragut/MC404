@@ -3,7 +3,6 @@
 @	RA:169488						RA:172434
 @
 @ Ultima modificao: 15:31, 21 de novembro 2017
-@TODO: Habilitar interrupcoes usuario
 .org 0x0
 .section .iv,"a"
 
@@ -18,7 +17,6 @@ interrupt_vector:
 
 
 @ Alocacao de memoria fica aqui
-@TODO: O professor mudou o endereco de memoria pra 12000, nao ha problema de memoria
 .data
 CONTADOR: .skip 4    @ Variavel que vai acumular interrupcoes
 
@@ -43,19 +41,14 @@ ALARM_ARRAY: .skip 64
 
 .text
 .org 0x100
+
 @Constantes usadas no sistema em geral
 .set USER_CODE, 0x77812000
 .set TIME_SZ,	200			@ Valor que o timer ira contar, suposto a testes e mudancas
 .set MAX_CALLBACKS, 8
 .set MAX_ALARMS, 8
 
-@Constantes para a configuracao do GPT
-.set GPT_CR,	0x53FA0000
-.set GPT_PR,	0x53FA0004
-.set GPT_SR,	0x53FA0008
-.set GPT_IR,	0x53FA000C
-.set GPT_OCR1,	0x53FA0010
-
+@Constantes usadas no sistema em geral
 RESET_HANDLER:
 
     @ Zera o contador
@@ -67,7 +60,15 @@ RESET_HANDLER:
     ldr r0, =interrupt_vector
     mcr p15, 0, r0, c12, c0, 0
 
-    SET_GPT:
+SET_GPT:
+
+@Constantes para a configuracao do GPT
+.set GPT_CR,	0x53FA0000
+.set GPT_PR,	0x53FA0004
+.set GPT_SR,	0x53FA0008
+.set GPT_IR,	0x53FA000C
+.set GPT_OCR1,	0x53FA0010
+
     @ Configuracao do General Purpose Timer(GPT)
     mov r0, #0x41
     ldr r1, =GPT_CR
@@ -107,7 +108,7 @@ RESET_HANDLER:
     str r0, [r1, #GPIO_DR]
 
     @ Muda pra supervisor
-    msr CPSR_c, #0x13
+    @msr CPSR_c, #0x13
 
     SET_TZIC:
     @ Constantes para os enderecos do TZIC
@@ -154,7 +155,7 @@ RESET_HANDLER:
     ldr r0, =USER_CODE
     mrs r1,CPSR
     bic r1, r1, #0b10011111
-    orr r1, r1, #0b00010000
+    orr r1, r1, #0b00010000             @TODO: Ativar interrupcoes IRQ
     msr CPSR, r1
     
     @ Ajusta a pilha do usuario
@@ -479,9 +480,9 @@ set_alarm:
 change_back_to_IRQ_mode:
 	@O código esta no modo supervisor, para mudar para o modo IRQ, precisa restaurar a pilha pro modo original
 	@Apos o pop, r0 tera o endereco de memoria do IRQ
-	pop {r7, lr}
+	pop {r7, lr}                @Como esta saindo do modo supervisor, precisa dar pop das coisas pushadas na pilha
 	msr CPSR_c, #0x12			@Coloca no modo IRQ
-	bx r0
+	bx r0                       @Volta pro codigo em IRQ
 
 IRQ_HANDLER:
     @Move a pilha para a memoria alocada
@@ -504,7 +505,7 @@ IRQ_HANDLER:
     @b IRQ_callback_for_end
 
 	@Verificar se algum alarme ativou
-	mov r4, r0					@R4 tera o valor do tempo do sistema(CONTADOR)
+	mov r4, r0					@R4 tera o valor do tempo atual do sistema(CONTADOR)
 	ldr r5, =ALARM_ARRAY		@R5 tera o valor do endereco de array
 	ldr r0, =ALARM_COUNTER
 	ldr r6, [r0]				@R6 tera o contador de elementos do array
@@ -519,7 +520,6 @@ IRQ_alarm_for_start:
 	bne IRQ_alarm_for_continue	@Senao for igual, continua o for
 
 	@Se o codigo chegar aqui, achou um alarme legitimo
-	@TODO: Tirar alarme do array, consertar array para que o elemento retirado nao interfira
 	@TODO: Garantir que nao ha interrupcoes no meio de outra
 	ldr r0, [r5, r1]			@Carrega valor do ponteiro da funcao que eh pra retornar em r7
     msr CPSR_c, #0x10			@Muda pra usuario
@@ -627,6 +627,6 @@ IRQ_callback_for_continue:
 	b IRQ_callback_for_start
 IRQ_callback_for_end:
 
-    sub lr, lr, #4
     pop {r0-r12, lr}
+    sub lr, lr, #4
     movs pc, lr
