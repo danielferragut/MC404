@@ -20,7 +20,7 @@ interrupt_vector:
 .data
 CONTADOR: .skip 4    @ Variavel que vai acumular interrupcoes
 
-IRQ_STACK: .skip 1024
+IRQ_STACK: .skip 4096
 IRQ_STACK_START: .skip 4
 
 SVC_STACK: .skip 4096
@@ -38,6 +38,8 @@ CALLBACK_ARRAY: .skip 96
 @ 4 bytes para ponteiro de funcao que precisa retornar e outros 4 para a informacao necessario
 ALARM_COUNTER: .word 0
 ALARM_ARRAY: .skip 64
+
+CALLBACK_FLAG: .word 0
 
 .text
 .org 0x100
@@ -59,6 +61,12 @@ RESET_HANDLER:
     @ Faz o registrador que aponta para a tabela de interrupções apontar para a tabela interrupt_vector
     ldr r0, =interrupt_vector
     mcr p15, 0, r0, c12, c0, 0
+
+    msr CPSR_c, #0x12
+    ldr sp, = IRQ_STACK_START
+
+    msr CPSR_c, #0x13
+    ldr sp, = SVC_STACK_START
 
 SET_GPT:
 
@@ -165,7 +173,6 @@ SET_GPT:
 @Handler de Supervisor Calls
 SVC_HANDLER:
 	@ Primeiro se ajusta a pilha para o endereco de SVC_STACK_START
-	ldr sp, =SVC_STACK_START
 	push {r7, lr}
 	@SVC vai receber um codigo em R7, indicando o que esta sendo pedido
 	@Codigo: 16 - read_sonar
@@ -446,7 +453,7 @@ set_alarm:
 	@Verifica se o tempo do sistema é maior que o pedido
 	ldr r2, =CONTADOR			@Endero de contador vai pra R2
 	ldr r0, [r2]				@Coloca o valor de contador em R0
-	cmp r0, r5
+	cmp r5, r0
 	movlo r0, #-2				@Se o tempo pedido é menor que o do sistema ele retorna.
 	poplo {r4-r6, pc}
 
@@ -483,9 +490,6 @@ change_back_to_IRQ_mode:
 	bx r0                       @Volta pro codigo em IRQ
 
 IRQ_HANDLER:
-    @Move a pilha para a memoria alocada
-    ldr sp, =IRQ_STACK_START
-
     push {r0-r12, lr}
     @Sinalizacao para GPT que a interrupcao foi tratada
 	@TODO: Isso daqui eh vital pra alguma coisa, descobrir o que
@@ -493,11 +497,21 @@ IRQ_HANDLER:
     ldr r1, =GPT_SR
     str r0, [r1]
 
+    @Salva o contexto original desta chamada do IRQ atual
+    mrs r0, SPSR
+    push {r0}
+    
     @Acrescimo de um ao contador
     ldr r1, =CONTADOR
     ldr r0, [r1]
     add r0, r0, #1
     str r0, [r1]
+    
+    @Garante que esteja no modo IRQ com interrupcoes ativas
+    mrs r1,CPSR
+    bic r1, r1, #0b10011111
+    orr r1, r1, #0b00010010             @Ativa interrupcoes IRQ
+    msr CPSR, r1
 
 	@Verificar se algum alarme ativou
 	mov r4, r0					@R4 tera o valor do tempo atual do sistema(CONTADOR)
@@ -517,7 +531,7 @@ IRQ_alarm_for_start:
 	@Se o codigo chegar aqui, achou um alarme legitimo
 	@TODO: Garantir que nao ha interrupcoes no meio de outra
 	ldr r0, [r5, r1]			@Carrega valor do ponteiro da funcao que eh pra retornar em r7
-    msr CPSR_c, #0x10			@Muda pra usuario       @TODO: interrupcoes?
+    msr CPSR_c, #0x10			@Muda pra usuario       
 	blx r0
 
     push {r7}
@@ -555,6 +569,16 @@ IRQ_alarm_for_continue:
 	add r7, r7 , #1
 	b IRQ_alarm_for_start
 IRQ_alarm_for_end:
+
+    @Se alguma outra interrupcao estiver tratando callback, esta nao vai tratar
+    ldr r1, =CALLBACK_FLAG
+    ldr r0, [r1]
+    cmp r0, #1
+    beq IRQ_callback_for_end
+    @Se chegar aqui, precisa tratar callbacks
+    mov r0, #1
+    str r0, [r1]
+
 
 	@Verificar se algum callback foi ativado
 	ldr r5, =CALLBACK_ARRAY			@R5 tera o valor do endereco de array
@@ -600,6 +624,11 @@ IRQ_callback_for_start:
 @For que ira de 4 a bytes sobreescrevendo o elemento a ser eliminado, e arrumando o array
 IRQ_remove_callback_loop:
 	cmp r0, r2
+@Aqui o for pode acabar, se acabar flag de callback volta pra zero
+    ldreq r1, =CALLBACK_FLAG
+    ldreq r0, [r1]
+    moveq r0, #0
+    streq r0, [r1]
 	beq IRQ_remove_callback_loop_fim
 
     @Copia 4 bytes de um dado de um elemento para 12 bytes atras no array
@@ -620,6 +649,9 @@ IRQ_callback_for_continue:
 	add r7, r7 , #1
 	b IRQ_callback_for_start
 IRQ_callback_for_end:
+
+    pop {r0}
+    msr SPSR, r0
 
     pop {r0-r12, lr}
     sub lr, lr, #4
