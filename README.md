@@ -32,7 +32,6 @@ O enunciado pode ser encontrado no [site do professor Edson Borin](https://www.i
 
 
 ## Coisas que restam fazer
-	- Verificar se read_sonar esta funcionando
-	- Verificar se set_alarm esta funcionado
-	- Verificar se register_register_callback esta funcionando
-	- Arrumar interações entre IRQ e ALARM e CALLBACK, muitas coisas a se pensar sobre esses dois
+    -Camada SOUL aparentemente terminada
+    -Foi sujeita a testes e passou em todos
+    -Verificar possiveis bugs com segue-parede e ronda
