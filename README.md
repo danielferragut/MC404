@@ -10,7 +10,7 @@ Trabalho do fim de curso de Organização Básica de Computadores e Linguagem de
 <br />
 <br />
 
-> ***“Boku wa oishii desu.”** <br /> ― Ryoo-chan*
+> ***“Kono purojekuto wa hijō ni muzukashīdesu.”** <br /> ― Hioki, Gabriel*
 <br />
 <br />
 
