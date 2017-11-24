@@ -529,14 +529,13 @@ IRQ_alarm_for_start:
 	bne IRQ_alarm_for_continue	@Senao for igual, continua o for
 
 	@Se o codigo chegar aqui, achou um alarme legitimo
-	@TODO: Garantir que nao ha interrupcoes no meio de outra
 	ldr r0, [r5, r1]			@Carrega valor do ponteiro da funcao que eh pra retornar em r7
     msr CPSR_c, #0x10			@Muda pra usuario       
 	blx r0
 
     push {r7}
     mov r7, #23					@R7 tera codigo do register_proximity_call
-	add r0, pc, #8				@R0 tera o endereço depois de SVC 0x0, mudando de User pra IRQ
+	add r0, pc, #0				@R0 tera o endereço depois de SVC 0x0, mudando de User pra IRQ
 	svc 0x0
     pop {r7}
 
@@ -587,6 +586,10 @@ IRQ_alarm_for_end:
 	mov r7, #0						@R7 sera a variavel de inducao do for
 IRQ_callback_for_start:
 	cmp r7, r6
+    ldreq r1, =CALLBACK_FLAG
+    ldreq r0, [r1]
+    moveq r0, #0
+    streq r0, [r1]
 	beq IRQ_callback_for_end
 
 	mov r0, #12
@@ -598,10 +601,9 @@ IRQ_callback_for_start:
 	bl read_sonar
 	ldr r1, [r5, r9]				@Carrega em R1 o valor do limiar
 	cmp r0, r1
-	bne IRQ_callback_for_continue	@Senao for igual, continua o for
+	bhi IRQ_callback_for_continue	@Senao for igual, continua o for
 
 	@Se o codigo chegar aqui, achou um callback legitimo
-	@TODO: Tirar callback do array, consertar array para que o elemento retirado nao interfira
 	ldr r0, [r5, r10]				@Carrega valor do ponteiro da funcao que eh pra retornar em R0
     msr CPSR_c, #0x10				@Muda pra usuario
 	blx r0
@@ -625,10 +627,6 @@ IRQ_callback_for_start:
 IRQ_remove_callback_loop:
 	cmp r0, r2
 @Aqui o for pode acabar, se acabar flag de callback volta pra zero
-    ldreq r1, =CALLBACK_FLAG
-    ldreq r0, [r1]
-    moveq r0, #0
-    streq r0, [r1]
 	beq IRQ_remove_callback_loop_fim
 
     @Copia 4 bytes de um dado de um elemento para 12 bytes atras no array
