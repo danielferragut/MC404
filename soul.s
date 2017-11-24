@@ -20,6 +20,7 @@ interrupt_vector:
 .data
 CONTADOR: .skip 4    @ Variavel que vai acumular interrupcoes
 
+@Pilhas alocadas para cada modo
 IRQ_STACK: .skip 4096
 IRQ_STACK_START: .skip 4
 
@@ -39,6 +40,7 @@ CALLBACK_ARRAY: .skip 96
 ALARM_COUNTER: .word 0
 ALARM_ARRAY: .skip 64
 
+@Flag que indicara se uma callback esta sendo tratada ou nao
 CALLBACK_FLAG: .word 0
 
 .text
@@ -62,6 +64,7 @@ RESET_HANDLER:
     ldr r0, =interrupt_vector
     mcr p15, 0, r0, c12, c0, 0
 
+    @Pilhas sendo inicializadas
     msr CPSR_c, #0x12
     ldr sp, = IRQ_STACK_START
 
@@ -115,8 +118,6 @@ SET_GPT:
     ldr r0, =GPIO_DR_MASK
     str r0, [r1, #GPIO_DR]
 
-    @ Muda pra supervisor
-    @msr CPSR_c, #0x13
 
     SET_TZIC:
     @ Constantes para os enderecos do TZIC
@@ -163,7 +164,7 @@ SET_GPT:
     ldr r0, =USER_CODE
     mrs r1,CPSR
     bic r1, r1, #0b10011111
-    orr r1, r1, #0b00010000             @TODO: Ativar interrupcoes IRQ
+    orr r1, r1, #0b00010000             @Mascara que ativa interrupcoes IRQ e coloca no modo usuario
     msr CPSR, r1
     
     @ Ajusta a pilha do usuario
@@ -211,7 +212,7 @@ SVC_HANDLER:
     pop {r7, lr}
 	movs pc, lr
 
-@read_sonar
+@read_sonar : Le o valor de um sonar e retorna o seu valor
 @ Parametros:
 @	R0: Identificador do sonar (valores válidos: 0 a 15).
 @
@@ -276,7 +277,7 @@ read_sonar_loop_3:
 read_sonar_end:
 	pop {r4, pc}
 
-@register_proximity_callback
+@register_proximity_callback : adicionara uma struct callback de 12 bytes no array de callbacks
 @ Parametros:
 @	R0: Identificador do sonar (valores válidos: 0 a 15).
 @	R1: Limiar de distância.
@@ -308,9 +309,6 @@ register_proximity_callback:
 	@Colocar novo callback no vetor de structs de callbacks
 	mov r7, r0					@R0 possuia o valor de CALLBACK_COUNTER, agora tambem R7 o contém
 	ldr r1, =CALLBACK_ARRAY		@Carrega o comeco do vetor de structs em R1
-	@TODO: Talvez desse modo seja melhor.
-	@ mov r0, r0, lsl #3			@Coloca R0 em 4 bytes atras do ultimo elemento da struct
-	@ add r0, r0, #4				@Complementa esses 4 bytes, chegando no final do array
 	mov r0, #12
 	mul r0, r7, r0
 	str r4, [r1, r0]			@Coloca o identificador de sonar na struct
@@ -323,7 +321,8 @@ register_proximity_callback:
 	str r7, [r2]				@Atualiza CALLBACK_COUNTER
 	mov r0, #0					@Operacao feita com sucesso, retorna R0=0
 	pop {r4-r7,pc}
-@set_motor_speed
+
+@set_motor_speed : ajusta a velocidade de um motor
 @ Parametros:
 @	R0: Identificador do motor (valores válidos 0 ou 1).
 @	R1: Velocidade.
@@ -364,7 +363,6 @@ SVC_motor_speed_0:
     orr r0, r0, r3           @ Escreve a velocidade em DR
     str r0, [r1, #GPIO_DR]   @ Escreve ele em DR
 	b SVC_motor_speed_fim
-    @TODO:Write esta como 0, talvez voltar pra 1?
 
 @Se entrar nesse rotulo, ira mudar os bits [26,31] para a velocidade e o bit 25
 SVC_motor_speed_1:
@@ -375,13 +373,12 @@ SVC_motor_speed_1:
     mov r3, r5, lsl #26      @ Move o primeiro bit da velocidade para o bit 26
     orr r0, r0, r3           @ Escreve a velocidade em DR
     str r0, [r1, #GPIO_DR]   @ Escreve ele em DR
-	@TODO: Wrote como 0 ou 1
 
 SVC_motor_speed_fim:
 	mov r0, #0
 	pop {r4,r5,pc}
 
-@set_motors_speed
+@set_motors_speed: ajusta a velocidade de 2 motores simultaneamente
 @ Parametros:
 @R0: Velocidade para o motor 0.
 @R1: Velocidade para o motor 1.
@@ -395,6 +392,7 @@ set_motors_speed:
     mov r4, r0
     mov r5, r1
 
+    @Se qualquer velocidade estiver acima do limite, ha erro
 	cmp r4, #0b111111
     movhi r0, #-1
 	pophi {r4,r5,pc}
@@ -413,11 +411,10 @@ set_motors_speed:
     orr r0, r0, r3           @ Escreve a velocidade do motor1 em DR
     str r0, [r1, #GPIO_DR]   @ Escreve ele em DR
 
-    @TODO: Wrote como 0 ou 1
 	mov r0, #0
 	pop {r4,r5,pc}
 
-@get_time
+@get_time : devolve o tempo do sistema para o usuario
 @ Parametros:
 @	R0: Ponteiro de unsigned int
 get_time:
@@ -427,7 +424,7 @@ get_time:
 	str r2, [r0]
 	pop {pc}
 
-@ set_time
+@ set_time : ajusta o tempo do sistema conforme o tempo que o usuario quer
 @ Parametros:
 @	R0: Tempo a ser setado
 set_time:
@@ -436,7 +433,7 @@ set_time:
     str r0, [r1]
 	pop {pc}
 
-@ set_alarm
+@ set_alarm : adicionara uma struct alarme de 8 bytes no array de alarmes
 @ Parametros:
 @	R0: ponteiro para função a ser chamada na ocorrência do alarme.
 @	R1: tempo do sistema.
@@ -479,7 +476,8 @@ set_alarm:
 	mov r0, #0					@Operacao feita com sucesso, retorna R0=0
 	pop {r4-r6, pc}
 
-@change_back_to_IRQ_mode:
+@ change_back_to_IRQ_mode: Funcao exclusiva do S.O, dado um endereco, esta syscall vai
+@ mudar o modo para IRQ e pular para o endereco, syscall usada pra tratar Callbacks e alarmes
 @ Paramentros:
 @	R0: Endereco da posicao que quer voltar
 change_back_to_IRQ_mode:
@@ -530,10 +528,10 @@ IRQ_alarm_for_start:
 
 	@Se o codigo chegar aqui, achou um alarme legitimo
 	ldr r0, [r5, r1]			@Carrega valor do ponteiro da funcao que eh pra retornar em r7
+    push {r7}                   @Salva R7, pois ele sera sujado com codigo de syscall
     msr CPSR_c, #0x10			@Muda pra usuario       
 	blx r0
 
-    push {r7}
     mov r7, #23					@R7 tera codigo do register_proximity_call
 	add r0, pc, #0				@R0 tera o endereço depois de SVC 0x0, mudando de User pra IRQ
 	svc 0x0
@@ -553,10 +551,12 @@ IRQ_remove_alarm_loop:
 	beq IRQ_remove_alarm_loop_fim
 
 	ldr r1, [r5, r9]                @R9 tem a primeira informacao o proximo elemento, sendo R5 o comeco do array
-	str r1, [r5, r8]                @
-	add r8, r8, #4
+	str r1, [r5, r8]                @R8 tem a informacao a ser apagada, sendo substituidade pela info de R9 em R1
+	@Move 4 bytes
+    add r8, r8, #4
 	add r9, r9, #4
 
+    @Soma uma a variavel de inducao e volta pro comeco do for
 	add r0, r0, #1
 	b IRQ_remove_alarm_loop
 IRQ_remove_alarm_loop_fim:
@@ -569,7 +569,7 @@ IRQ_alarm_for_continue:
 	b IRQ_alarm_for_start
 IRQ_alarm_for_end:
 
-    @Se alguma outra interrupcao estiver tratando callback, esta nao vai tratar
+    @Se alguma outra interrupcao estiver tratando callback, esta interecao do IRQ nao vai tratar
     ldr r1, =CALLBACK_FLAG
     ldr r0, [r1]
     cmp r0, #1
@@ -605,12 +605,12 @@ IRQ_callback_for_start:
 
 	@Se o codigo chegar aqui, achou um callback legitimo
 	ldr r0, [r5, r10]				@Carrega valor do ponteiro da funcao que eh pra retornar em R0
+    push {r7}                       @Salva R7, para restauracao posterior
     msr CPSR_c, #0x10				@Muda pra usuario
 	blx r0
 
-    push {r7}
 	mov r7, #23						@R7 tera codigo do register_proximity_call
-	add r0, pc, #8					@R0 tera o endereço depois de SVC 0x0, mudando de User pra IRQ
+	add r0, pc, #0					@R0 tera o endereço depois de SVC 0x0, mudando de User pra IRQ
 	svc 0x0
 	pop {r7}
 
@@ -623,14 +623,14 @@ IRQ_callback_for_start:
 	mul r8, r7, r0                  @Vai pro elemento atual a ser eliminado
 	add r9, r8, r0                  @Vai pro proximo
     mov r0, #0                      @R0 sera a variavel de inducao do proximo for
-@For que ira de 4 a bytes sobreescrevendo o elemento a ser eliminado, e arrumando o array
+@Esse for ira de 4 a 4 bytes sobreescrevendo o elemento a ser eliminado, e arrumando o array conforme necessario
 IRQ_remove_callback_loop:
 	cmp r0, r2
-@Aqui o for pode acabar, se acabar flag de callback volta pra zero
 	beq IRQ_remove_callback_loop_fim
 
     @Copia 4 bytes de um dado de um elemento para 12 bytes atras no array
 	ldr r1, [r5, r9]
+    ldr r11, [r5, r8]
 	str r1, [r5, r8]
 	add r8, r8, #4
 	add r9, r9, #4
@@ -644,10 +644,11 @@ IRQ_remove_callback_loop_fim:
     sub r7, r7, #1                   @Como um elemento foi retirado do array, variavel de inducao precisa ser ajustada
 
 IRQ_callback_for_continue:
-	add r7, r7 , #1
+	add r7, r7 , #1                  @Soma uma para variavel de inducao e volta pro comeco do for
 	b IRQ_callback_for_start
 IRQ_callback_for_end:
 
+    @Fim do IRQ, precisa restaurar pra o estado original do código
     pop {r0}
     msr SPSR, r0
 
